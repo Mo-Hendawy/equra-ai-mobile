@@ -7,9 +7,9 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
-  // For local development, use localhost (works with adb reverse)
+  // Use Railway backend by default
   if (!host) {
-    return "http://localhost:5000";
+    return "https://equra-ai-backend-production.up.railway.app";
   }
 
   let url = new URL(`https://${host}`);

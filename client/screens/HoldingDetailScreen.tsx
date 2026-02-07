@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, Alert, Platform, Pressable } from "react-native";
+import { View, StyleSheet, Platform, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import {
@@ -79,37 +79,22 @@ export default function HoldingDetailScreen() {
   );
 
   useEffect(() => {
-    console.log("🔧 HoldingDetailScreen: Setting header options. Holding exists:", !!holding, holding?.symbol);
     navigation.setOptions({
-      headerRight: () => {
-        console.log("🎨 HeaderRight render called. Holding:", !!holding);
-        return holding ? (
-          <Pressable
+      headerRight: () =>
+        holding ? (
+          <TouchableOpacity
             onPress={() => {
-              console.log("✅✅✅ EDIT BUTTON PRESSED! Holding:", holding.symbol);
-              Alert.alert("DEBUG", `Edit button pressed for ${holding.symbol}`);
               if (Platform.OS !== "web") {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }
               navigation.navigate("AddHolding", { holding });
             }}
-            onPressIn={() => console.log("👆 Edit button PRESS IN")}
-            onPressOut={() => console.log("👆 Edit button PRESS OUT")}
-            style={({ pressed }) => {
-              console.log("🎨 Edit button style render, pressed:", pressed);
-              return {
-                opacity: pressed ? 0.5 : 1,
-                padding: 12,
-                marginRight: 4,
-                backgroundColor: 'rgba(255,0,0,0.1)', // DEBUG: red tint
-              };
-            }}
-            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+            style={{ padding: 8, marginRight: 8 }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Feather name="edit-2" size={28} color={theme.primary} />
-          </Pressable>
-        ) : null;
-      },
+            <Feather name="edit-2" size={24} color={theme.primary} />
+          </TouchableOpacity>
+        ) : null,
     });
   }, [navigation, holding, theme]);
 
