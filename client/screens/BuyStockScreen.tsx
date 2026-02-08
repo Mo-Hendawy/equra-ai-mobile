@@ -125,7 +125,7 @@ export default function BuyStockScreen() {
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: headerHeight + Spacing.xl,
+          paddingTop: Spacing.xl,
           paddingBottom: insets.bottom + Spacing.xl,
         },
       ]}

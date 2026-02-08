@@ -73,6 +73,7 @@ function AnimatedBar({
           <ThemedText
             type="small"
             style={[styles.barValue, Typography.mono, { color: theme.textSecondary }]}
+            numberOfLines={1}
           >
             {formatValue(item.value)}
           </ThemedText>
@@ -132,7 +133,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xs,
   },
   barValue: {
-    width: 70,
     textAlign: "right",
+    minWidth: 80,
   },
 });

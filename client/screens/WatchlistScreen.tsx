@@ -65,7 +65,7 @@ export default function WatchlistScreen() {
         contentContainerStyle={[
           styles.listContent,
           {
-            paddingTop: headerHeight + Spacing.xl,
+            paddingTop: Spacing.xl,
             paddingBottom: insets.bottom + Spacing["4xl"],
           },
           watchlist.length === 0 && styles.emptyListContent,

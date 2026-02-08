@@ -18,6 +18,7 @@ export const EGX_STOCKS: EGXStock[] = [
   { symbol: "HDBK", nameEn: "Housing & Development Bank", nameAr: "بنك التعمير والإسكان", sector: "Banks" },
   { symbol: "NBKE", nameEn: "National Bank of Kuwait - Egypt", nameAr: "بنك الكويت الوطني مصر", sector: "Banks" },
   { symbol: "EXPA", nameEn: "Export Development Bank of Egypt", nameAr: "البنك المصري لتنمية الصادرات", sector: "Banks" },
+  { symbol: "UBEE", nameEn: "The United Bank", nameAr: "البنك المتحد", sector: "Banks" },
   
   // Financial Services
   { symbol: "HRHO", nameEn: "EFG Hermes Holding", nameAr: "المجموعة المالية هيرميس القابضة", sector: "Financial Services" },
@@ -45,6 +46,7 @@ export const EGX_STOCKS: EGXStock[] = [
   { symbol: "AREH", nameEn: "Arab Real Estate Holdings", nameAr: "العرب للعقارات القابضة", sector: "Real Estate" },
   { symbol: "PRDC", nameEn: "Porto Group Holding", nameAr: "بورتو جروب القابضة", sector: "Real Estate" },
   { symbol: "MASR", nameEn: "Misr Real Estate Assets", nameAr: "مصر للأصول العقارية", sector: "Real Estate" },
+  { symbol: "BONY", nameEn: "Bonyan for Development and Trade", nameAr: "بنيان للتنمية والتجارة", sector: "Real Estate" },
   
   // Industrial
   { symbol: "SWDY", nameEn: "El Sewedy Electric", nameAr: "السويدي إليكتريك", sector: "Industrial" },
@@ -89,6 +91,7 @@ export const EGX_STOCKS: EGXStock[] = [
   { symbol: "SCEM", nameEn: "Sinai Cement", nameAr: "أسمنت سيناء", sector: "Industrial" },
   
   // Healthcare
+  { symbol: "ADCI", nameEn: "Arab Pharmaceuticals", nameAr: "العربية للأدوية", sector: "Healthcare" },
   { symbol: "CLHO", nameEn: "Cleopatra Hospital", nameAr: "مستشفى كليوباترا", sector: "Healthcare" },
   { symbol: "PHAR", nameEn: "Egyptian International Pharmaceuticals Industries", nameAr: "ايبيكو", sector: "Healthcare" },
   { symbol: "BIOC", nameEn: "Glaxo Smith Kline", nameAr: "جلاكسو سميث كلاين", sector: "Healthcare" },

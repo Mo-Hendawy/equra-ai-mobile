@@ -52,6 +52,16 @@ export default function PortfolioScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // 🔍 DEBUG LOGGING
+  console.log("📐 PORTFOLIO SCREEN LAYOUT:", {
+    headerHeight,
+    tabBarHeight,
+    insetsTop: insets.top,
+    insetsBottom: insets.bottom,
+    spacingXl: Spacing.xl,
+    calculatedpaddingTop: Spacing.xl,
+  });
+
   const loadHoldings = useCallback(async () => {
     try {
       await holdingsStorage.seedInitialHoldings();
@@ -256,7 +266,7 @@ export default function PortfolioScreen() {
         contentContainerStyle={[
           styles.listContent,
           {
-            paddingTop: headerHeight + Spacing.xl,
+            paddingTop: Spacing.xl,
             paddingBottom: tabBarHeight + Spacing["4xl"],
           },
           holdings.length === 0 && styles.emptyListContent,

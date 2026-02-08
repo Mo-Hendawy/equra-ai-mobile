@@ -230,7 +230,7 @@ export default function TrackingScreen() {
         style={[
           styles.header,
           {
-            paddingTop: headerHeight + Spacing.xl,
+            paddingTop: Spacing.xl,
           },
         ]}
       >

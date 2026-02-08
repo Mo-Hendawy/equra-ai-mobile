@@ -37,6 +37,14 @@ export default function HoldingDetailScreen() {
   const route = useRoute<RouteProps>();
   const { theme } = useTheme();
 
+  // 🔍 DEBUG LOGGING
+  console.log("📐 HOLDING DETAIL LAYOUT:", {
+    headerHeight,
+    insetsTop: insets.top,
+    insetsBottom: insets.bottom,
+    spacingLg: Spacing.lg,
+  });
+
   const [holding, setHolding] = useState<PortfolioHolding | null>(null);
   const [transactions, setTransactions] = useState<StockTransaction[]>([]);
   const [currentPrice, setCurrentPrice] = useState("");
@@ -79,11 +87,14 @@ export default function HoldingDetailScreen() {
   );
 
   useEffect(() => {
+    console.log("🔧 SETTING HEADER OPTIONS - holding:", holding?.symbol);
     navigation.setOptions({
-      headerRight: () =>
-        holding ? (
+      headerRight: () => {
+        console.log("🎨 HEADER RIGHT RENDER - holding:", !!holding);
+        return holding ? (
           <TouchableOpacity
-            onPress={() => {
+            onPressOut={() => {
+              console.log("✅✅✅ EDIT BUTTON PRESSED! Symbol:", holding.symbol);
               if (Platform.OS !== "web") {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }
@@ -94,7 +105,8 @@ export default function HoldingDetailScreen() {
           >
             <Feather name="edit-2" size={24} color={theme.primary} />
           </TouchableOpacity>
-        ) : null,
+        ) : null;
+      },
     });
   }, [navigation, holding, theme]);
 
@@ -300,7 +312,7 @@ export default function HoldingDetailScreen() {
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: headerHeight + Spacing.xl,
+          paddingTop: Spacing.xl,
           paddingBottom: insets.bottom + Spacing.xl,
         },
       ]}

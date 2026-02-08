@@ -131,7 +131,7 @@ export default function AnalyticsScreen() {
           contentContainerStyle={[
             styles.emptyContent,
             {
-              paddingTop: headerHeight + Spacing.xl,
+              paddingTop: Spacing.xl,
               paddingBottom: tabBarHeight + Spacing.xl,
             },
           ]}
@@ -153,7 +153,7 @@ export default function AnalyticsScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: headerHeight + Spacing.xl,
+            paddingTop: Spacing.xl,
             paddingBottom: tabBarHeight + Spacing.xl,
           },
         ]}

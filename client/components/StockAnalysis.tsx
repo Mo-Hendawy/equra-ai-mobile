@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ActivityIndicator } from "react-native";
+import { View, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
+import { Feather } from "@expo/vector-icons";
 
 import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
@@ -40,6 +41,9 @@ interface StockAnalysisData {
   geminiKeyPoints?: string[];
   analysisMethod?: string;
   error?: string;
+  valuationStatus?: "Undervalued" | "Fair" | "Overvalued";
+  simpleExplanation?: string[];
+  riskSignals?: string[];
 }
 
 interface StockAnalysisProps {
@@ -50,21 +54,29 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
   const { theme } = useTheme();
   const [analysis, setAnalysis] = useState<StockAnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
+
+  const fetchAnalysis = async (refresh: boolean = false) => {
+    if (refresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    try {
+      const url = refresh ? `/api/analysis/${symbol}?refresh=true` : `/api/analysis/${symbol}`;
+      const response = await apiRequest("GET", url);
+      const data = await response.json();
+      setAnalysis(data);
+    } catch (error) {
+      console.log("Failed to fetch analysis:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAnalysis = async () => {
-      setLoading(true);
-      try {
-        const response = await apiRequest("GET", `/api/analysis/${symbol}`);
-        const data = await response.json();
-        setAnalysis(data);
-      } catch (error) {
-        console.log("Failed to fetch analysis:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAnalysis();
   }, [symbol]);
 
@@ -143,10 +155,128 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
     );
   }
 
+  const valuationStatus = analysis.valuationStatus || "Fair";
+  const simpleExplanation = analysis.simpleExplanation || [];
+  const riskSignals = analysis.riskSignals || [];
+  const isGemini = analysis.analysisMethod === "Gemini AI";
+
+  const getValuationColor = (status: string) => {
+    switch (status) {
+      case "Undervalued": return "#10B981";
+      case "Fair": return "#F59E0B";
+      case "Overvalued": return "#EF4444";
+      default: return theme.textSecondary;
+    }
+  };
+
   return (
     <Card style={styles.card}>
-      <ThemedText type="h4" style={styles.title}>Stock Analysis</ThemedText>
+      {/* Title + Source Badge + Refresh */}
+      <View style={styles.titleRow}>
+        <ThemedText type="h4" style={styles.title}>Stock Analysis</ThemedText>
+        <View style={styles.titleActions}>
+          <View style={[styles.sourceBadge, { backgroundColor: isGemini ? "#10B981" + "20" : "#F59E0B" + "20" }]}>
+            <ThemedText style={[styles.sourceBadgeText, { color: isGemini ? "#10B981" : "#F59E0B" }]}>
+              {isGemini ? "Gemini AI" : "Fallback"}
+            </ThemedText>
+          </View>
+          <TouchableOpacity onPress={() => fetchAnalysis(true)} disabled={refreshing} style={styles.refreshButton}>
+            {refreshing ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : (
+              <Feather name="refresh-cw" size={18} color={theme.primary} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
 
+      {/* Simplified Analysis */}
+      <View style={styles.simplifiedSection}>
+        {/* 1. Fair Value Meter */}
+        <View style={styles.fairValueMeterSection}>
+          <View style={styles.meterBar}>
+            <View style={[styles.meterSegment, { 
+              backgroundColor: "#10B981" + (valuationStatus === "Undervalued" ? "40" : "15"),
+              borderWidth: valuationStatus === "Undervalued" ? 2 : 0,
+              borderColor: "#10B981"
+            }]}>
+              <ThemedText style={[styles.meterLabel, { 
+                color: valuationStatus === "Undervalued" ? "#10B981" : theme.textSecondary,
+                fontWeight: valuationStatus === "Undervalued" ? "700" : "400"
+              }]}>Undervalued</ThemedText>
+            </View>
+            <View style={[styles.meterSegment, { 
+              backgroundColor: "#F59E0B" + (valuationStatus === "Fair" ? "40" : "15"),
+              borderWidth: valuationStatus === "Fair" ? 2 : 0,
+              borderColor: "#F59E0B"
+            }]}>
+              <ThemedText style={[styles.meterLabel, { 
+                color: valuationStatus === "Fair" ? "#F59E0B" : theme.textSecondary,
+                fontWeight: valuationStatus === "Fair" ? "700" : "400"
+              }]}>Fair</ThemedText>
+            </View>
+            <View style={[styles.meterSegment, { 
+              backgroundColor: "#EF4444" + (valuationStatus === "Overvalued" ? "40" : "15"),
+              borderWidth: valuationStatus === "Overvalued" ? 2 : 0,
+              borderColor: "#EF4444"
+            }]}>
+              <ThemedText style={[styles.meterLabel, { 
+                color: valuationStatus === "Overvalued" ? "#EF4444" : theme.textSecondary,
+                fontWeight: valuationStatus === "Overvalued" ? "700" : "400"
+              }]}>Overvalued</ThemedText>
+            </View>
+          </View>
+          <View style={[styles.confidenceBadge, { backgroundColor: getConfidenceColor(analysis.geminiConfidence || "Medium") + "20" }]}>
+            <ThemedText style={[styles.confidenceText, { color: getConfidenceColor(analysis.geminiConfidence || "Medium") }]}>
+              Confidence: {analysis.geminiConfidence || "Medium"}
+            </ThemedText>
+          </View>
+        </View>
+
+        {/* 2. Simple Explanation */}
+        {simpleExplanation.length > 0 && (
+          <View style={styles.whySection}>
+            <View style={styles.bulletList}>
+              {simpleExplanation.map((point, index) => (
+                <View key={index} style={[styles.bulletItem, { backgroundColor: theme.backgroundSecondary }]}>
+                  <View style={[styles.bulletDot, { backgroundColor: theme.primary }]} />
+                  <ThemedText style={[styles.bulletText, { color: theme.text }]}>{point}</ThemedText>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* 3. Risk Signals */}
+        {riskSignals.length > 0 && (
+          <View style={styles.riskSection}>
+            <ThemedText style={[styles.riskTitle, { color: theme.text }]}>Red Flags & Risk Signals</ThemedText>
+            <View style={styles.riskList}>
+              {riskSignals.map((signal, index) => (
+                <View key={index} style={[styles.riskItem, { backgroundColor: "#EF4444" + "10" }]}>
+                  <Feather name="alert-circle" size={16} color="#EF4444" />
+                  <ThemedText style={[styles.riskText, { color: theme.text }]}>{signal}</ThemedText>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* See More Button */}
+        <TouchableOpacity 
+          style={[styles.seeMoreButton, { backgroundColor: theme.primary + "15" }]}
+          onPress={() => setShowDetailedAnalysis(!showDetailedAnalysis)}
+        >
+          <ThemedText style={[styles.seeMoreText, { color: theme.primary }]}>
+            {showDetailedAnalysis ? "Show Less" : "See Detailed Analysis"}
+          </ThemedText>
+          <Feather name={showDetailedAnalysis ? "chevron-up" : "chevron-down"} size={20} color={theme.primary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Detailed Analysis (toggled) */}
+      {showDetailedAnalysis && (
+      <View>
       <View style={[styles.recommendationBox, { backgroundColor: getRecommendationColor(analysis.recommendation) + "20" }]}>
         <ThemedText style={[styles.recommendationLabel, { color: theme.textSecondary }]}>
           Recommendation
@@ -406,6 +536,8 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
       <ThemedText style={[styles.disclaimer, { color: theme.textSecondary }]}>
         Analysis is based on publicly available data and should not be considered financial advice. Always do your own research.
       </ThemedText>
+      </View>
+      )}
     </Card>
   );
 }
@@ -414,8 +546,121 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: Spacing.lg,
   },
-  title: {
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: Spacing.lg,
+  },
+  title: {
+    marginBottom: 0,
+  },
+  titleActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  sourceBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.xs,
+  },
+  sourceBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  refreshButton: {
+    padding: Spacing.xs,
+  },
+  simplifiedSection: {
+    marginBottom: Spacing.md,
+  },
+  fairValueMeterSection: {
+    marginBottom: Spacing.lg,
+  },
+  meterBar: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  meterSegment: {
+    flex: 1,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+  },
+  meterLabel: {
+    fontSize: 13,
+    textAlign: "center",
+  },
+  confidenceBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.xs,
+  },
+  confidenceText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  whySection: {
+    marginBottom: Spacing.lg,
+  },
+  bulletList: {
+    gap: Spacing.sm,
+  },
+  bulletItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+  },
+  bulletDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 7,
+  },
+  bulletText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  riskSection: {
+    marginBottom: Spacing.lg,
+  },
+  riskTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: Spacing.sm,
+  },
+  riskList: {
+    gap: Spacing.sm,
+  },
+  riskItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+  },
+  riskText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  seeMoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+  },
+  seeMoreText: {
+    fontSize: 15,
+    fontWeight: "600",
   },
   loadingContainer: {
     flexDirection: "row",

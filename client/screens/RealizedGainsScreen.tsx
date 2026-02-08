@@ -192,7 +192,7 @@ export default function RealizedGainsScreen() {
         contentContainerStyle={[
           styles.listContent,
           {
-            paddingTop: headerHeight + Spacing.xl,
+            paddingTop: Spacing.xl,
             paddingBottom: insets.bottom + Spacing.xl,
           },
           gains.length === 0 && !loading && styles.emptyListContent,
