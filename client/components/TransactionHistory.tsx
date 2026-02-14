@@ -1,6 +1,6 @@
-import React, { useMemo } from "react";
-import { View, StyleSheet } from "react-native";
-import Svg, { Path, Circle, Line, Text as SvgText } from "react-native-svg";
+import React, { useMemo, useState } from "react";
+import { View, StyleSheet, useWindowDimensions } from "react-native";
+import Svg, { Path, Circle, Line, Text as SvgText, Rect, G } from "react-native-svg";
 
 import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
@@ -27,6 +27,8 @@ export function TransactionHistory({
   initialAvgCost 
 }: TransactionHistoryProps) {
   const { theme } = useTheme();
+  const { width: screenWidth } = useWindowDimensions();
+  const [selectedDot, setSelectedDot] = useState<number | null>(null);
 
   const sortedTransactions = useMemo(() => {
     return [...transactions].sort((a, b) => 
@@ -46,19 +48,52 @@ export function TransactionHistory({
       }];
     }
 
-    let runningShares = 0;
-    let runningCost = 0;
-
-    sortedTransactions.forEach((tx, index) => {
+    // Calculate net shares from transactions alone
+    let netTxShares = 0;
+    let sumBuyCost = 0;
+    sortedTransactions.forEach(tx => {
       if (tx.type === "buy") {
-        const txCost = tx.shares * tx.pricePerShare + tx.fees;
-        runningCost += txCost;
+        netTxShares += tx.shares;
+        sumBuyCost += tx.shares * tx.pricePerShare;
+      } else {
+        netTxShares -= tx.shares;
+      }
+    });
+
+    // Determine if there were pre-existing shares before any transactions
+    const preExistingShares = initialShares - netTxShares;
+
+    let runningShares: number;
+    let runningCost: number;
+
+    if (preExistingShares > 0) {
+      // Solve for the pre-existing avg cost:
+      // finalAvgCost * finalShares = preExistingShares * preAvgCost + sumBuyCost (approx for buy-only)
+      const preAvgCost = (initialAvgCost * initialShares - sumBuyCost) / preExistingShares;
+
+      runningShares = preExistingShares;
+      runningCost = preExistingShares * Math.max(0, preAvgCost);
+
+      history.push({
+        date: "Initial",
+        avgCost: runningCost / runningShares,
+        shares: runningShares,
+        type: "initial" as const,
+      });
+    } else {
+      runningShares = 0;
+      runningCost = 0;
+    }
+
+    sortedTransactions.forEach((tx) => {
+      if (tx.type === "buy") {
+        runningCost += tx.shares * tx.pricePerShare;
         runningShares += tx.shares;
       } else {
-        runningShares -= tx.shares;
         if (runningShares > 0) {
-          runningCost = (runningCost / (runningShares + tx.shares)) * runningShares;
+          runningCost = (runningCost / runningShares) * (runningShares - tx.shares);
         }
+        runningShares -= tx.shares;
       }
 
       const avgCost = runningShares > 0 ? runningCost / runningShares : 0;
@@ -81,9 +116,9 @@ export function TransactionHistory({
     }).format(value);
   };
 
-  const chartWidth = 280;
-  const chartHeight = 120;
-  const padding = { top: 20, right: 40, bottom: 30, left: 10 };
+  const chartWidth = Math.min(screenWidth - Spacing.lg * 4, 400);
+  const chartHeight = 160;
+  const padding = { top: 40, right: 45, bottom: 30, left: 15 };
   const graphWidth = chartWidth - padding.left - padding.right;
   const graphHeight = chartHeight - padding.top - padding.bottom;
 
@@ -125,6 +160,7 @@ export function TransactionHistory({
       
       <View style={styles.chartContainer}>
         <Svg width={chartWidth} height={chartHeight}>
+          {/* Baseline */}
           <Line
             x1={padding.left}
             y1={chartHeight - padding.bottom}
@@ -134,6 +170,7 @@ export function TransactionHistory({
             strokeWidth={1}
           />
           
+          {/* Line path */}
           {costHistory.length > 1 ? (
             <Path
               d={linePath}
@@ -143,29 +180,60 @@ export function TransactionHistory({
             />
           ) : null}
           
-          {costHistory.map((point, index) => (
-            <Circle
-              key={index}
-              cx={getX(index)}
-              cy={getY(point.avgCost)}
-              r={5}
-              fill={point.type === "buy" ? theme.success : point.type === "sell" ? theme.error : theme.primary}
-            />
-          ))}
+          {/* Dots with tap targets */}
+          {costHistory.map((point, index) => {
+            const cx = getX(index);
+            const cy = getY(point.avgCost);
+            const isSelected = selectedDot === index;
+            const dotColor = point.type === "buy" ? theme.success : point.type === "sell" ? theme.error : theme.primary;
+            
+            return (
+              <G key={index} onPress={() => setSelectedDot(isSelected ? null : index)}>
+                {/* Invisible larger tap target */}
+                <Circle
+                  cx={cx}
+                  cy={cy}
+                  r={18}
+                  fill="transparent"
+                />
+                {/* Selected ring */}
+                {isSelected ? (
+                  <Circle
+                    cx={cx}
+                    cy={cy}
+                    r={9}
+                    fill={dotColor + "30"}
+                    stroke={dotColor}
+                    strokeWidth={1.5}
+                  />
+                ) : null}
+                {/* Visible dot */}
+                <Circle
+                  cx={cx}
+                  cy={cy}
+                  r={isSelected ? 6 : 5}
+                  fill={dotColor}
+                />
+              </G>
+            );
+          })}
           
+          {/* Date labels */}
           {costHistory.map((point, index) => (
             <SvgText
               key={`label-${index}`}
               x={getX(index)}
               y={chartHeight - 8}
               fontSize={9}
-              fill={theme.textSecondary}
+              fill={selectedDot === index ? theme.text : theme.textSecondary}
+              fontWeight={selectedDot === index ? "bold" : "normal"}
               textAnchor="middle"
             >
               {point.date}
             </SvgText>
           ))}
           
+          {/* Y-axis labels */}
           <SvgText
             x={chartWidth - padding.right + 5}
             y={getY(maxCost) + 4}
@@ -184,6 +252,56 @@ export function TransactionHistory({
           >
             {formatCurrency(minCost)}
           </SvgText>
+
+          {/* Tooltip for selected dot */}
+          {selectedDot !== null && costHistory[selectedDot] ? (() => {
+            const point = costHistory[selectedDot];
+            const cx = getX(selectedDot);
+            const cy = getY(point.avgCost);
+            const label = `EGP ${formatCurrency(point.avgCost)}`;
+            const subLabel = `${point.shares} shares`;
+            const tooltipWidth = 100;
+            const tooltipHeight = 32;
+            // Keep tooltip within chart bounds
+            let tooltipX = cx - tooltipWidth / 2;
+            if (tooltipX < 2) tooltipX = 2;
+            if (tooltipX + tooltipWidth > chartWidth - 2) tooltipX = chartWidth - tooltipWidth - 2;
+            const tooltipY = cy - tooltipHeight - 14;
+
+            return (
+              <G>
+                <Rect
+                  x={tooltipX}
+                  y={tooltipY}
+                  width={tooltipWidth}
+                  height={tooltipHeight}
+                  rx={6}
+                  fill={theme.text}
+                  opacity={0.92}
+                />
+                <SvgText
+                  x={tooltipX + tooltipWidth / 2}
+                  y={tooltipY + 13}
+                  fontSize={11}
+                  fontWeight="bold"
+                  fill={theme.backgroundRoot}
+                  textAnchor="middle"
+                >
+                  {label}
+                </SvgText>
+                <SvgText
+                  x={tooltipX + tooltipWidth / 2}
+                  y={tooltipY + 26}
+                  fontSize={9}
+                  fill={theme.backgroundRoot}
+                  opacity={0.7}
+                  textAnchor="middle"
+                >
+                  {subLabel}
+                </SvgText>
+              </G>
+            );
+          })() : null}
         </Svg>
       </View>
 

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Pressable, Alert, Platform } from "react-native";
+import { View, StyleSheet, Pressable, Alert, Platform, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
-import { HeaderButton } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -92,12 +91,21 @@ export default function AddHoldingScreen() {
   useEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
-        <HeaderButton onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{ padding: 8, marginLeft: 8 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <ThemedText style={{ color: theme.primary }}>Cancel</ThemedText>
-        </HeaderButton>
+        </TouchableOpacity>
       ),
       headerRight: () => (
-        <HeaderButton onPress={handleSave} disabled={saving}>
+        <TouchableOpacity
+          onPress={handleSave}
+          disabled={saving}
+          style={{ padding: 8, marginRight: 8 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <ThemedText
             style={{
               color: theme.primary,
@@ -107,7 +115,7 @@ export default function AddHoldingScreen() {
           >
             {isEditing ? "Update" : "Save"}
           </ThemedText>
-        </HeaderButton>
+        </TouchableOpacity>
       ),
     });
   }, [navigation, selectedStock, shares, averageCost, currentPrice, role, status, notes, saving]);

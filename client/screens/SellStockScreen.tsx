@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, Platform } from "react-native";
+import { View, StyleSheet, Platform, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { HeaderButton } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -101,12 +100,21 @@ export default function SellStockScreen() {
   useEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
-        <HeaderButton onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{ padding: 8, marginLeft: 8 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <ThemedText style={{ color: theme.primary }}>Cancel</ThemedText>
-        </HeaderButton>
+        </TouchableOpacity>
       ),
       headerRight: () => (
-        <HeaderButton onPress={handleSave} disabled={saving || !!error}>
+        <TouchableOpacity
+          onPress={handleSave}
+          disabled={saving || !!error}
+          style={{ padding: 8, marginRight: 8 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <ThemedText
             style={{
               color: theme.error,
@@ -116,7 +124,7 @@ export default function SellStockScreen() {
           >
             Sell
           </ThemedText>
-        </HeaderButton>
+        </TouchableOpacity>
       ),
     });
   }, [navigation, handleSave, saving, error, theme]);

@@ -75,12 +75,13 @@ export function TransactionImportModal({
   const analyzeImage = async (base64: string) => {
     setLoading(true);
     try {
-      const response = await apiRequest("/extract-transactions", {
-        method: "POST",
-        body: JSON.stringify({ image: `data:image/png;base64,${base64}` }),
-      });
+      const response = await apiRequest(
+        "POST",
+        "/api/extract-transactions",
+        { image: `data:image/png;base64,${base64}` },
+      );
 
-      const { transactions: extractedTx } = response;
+      const { transactions: extractedTx } = await response.json();
       
       if (extractedTx && extractedTx.length > 0) {
         // Auto-select all fulfilled transactions
@@ -92,9 +93,10 @@ export function TransactionImportModal({
       } else {
         Alert.alert("No Transactions Found", "Could not extract any fulfilled transactions from the image.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Transaction extraction error:", error);
-      Alert.alert("Error", "Failed to extract transactions. Please try again.");
+      const msg = error?.message || "Unknown error";
+      Alert.alert("Error", `Failed to extract transactions.\n\n${msg}`);
     } finally {
       setLoading(false);
     }
@@ -164,7 +166,7 @@ export function TransactionImportModal({
               <ThemedText style={[styles.emptyText, { color: theme.textSecondary }]}>
                 No screenshot uploaded yet
               </ThemedText>
-              <Button title="Choose Screenshot" onPress={pickImage} style={styles.uploadButton} />
+              <Button onPress={pickImage} style={styles.uploadButton}>Choose Screenshot</Button>
             </View>
           ) : (
             <>
@@ -243,16 +245,17 @@ export function TransactionImportModal({
 
               <View style={styles.footer}>
                 <Button
-                  title="Choose Different Image"
                   onPress={pickImage}
-                  variant="secondary"
                   style={styles.footerButton}
-                />
+                >
+                  Choose Different Image
+                </Button>
                 <Button
-                  title={`Import ${transactions.filter((tx) => tx.selected).length} Transactions`}
                   onPress={handleImport}
                   style={styles.footerButton}
-                />
+                >
+                  {`Import ${transactions.filter((tx) => tx.selected).length} Transactions`}
+                </Button>
               </View>
             </>
           )}
