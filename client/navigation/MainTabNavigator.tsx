@@ -9,6 +9,7 @@ import AnalyticsStackNavigator from "@/navigation/AnalyticsStackNavigator";
 import TrackingStackNavigator from "@/navigation/TrackingStackNavigator";
 import StockSearchStackNavigator from "@/navigation/StockSearchStackNavigator";
 import DividendCalendarStackNavigator from "@/navigation/DividendCalendarStackNavigator";
+import AIStackNavigator from "@/navigation/AIStackNavigator";
 import MoreStackNavigator from "@/navigation/MoreStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -18,6 +19,7 @@ export type MainTabParamList = {
   TrackingTab: undefined;
   StockSearchTab: undefined;
   DividendCalendarTab: undefined;
+  AITab: undefined;
   MoreTab: undefined;
 };
 
@@ -99,6 +101,16 @@ export default function MainTabNavigator() {
           title: "Calendar",
           tabBarIcon: ({ color, size }) => (
             <Feather name="calendar" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="AITab"
+        component={AIStackNavigator}
+        options={{
+          title: "AI",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="cpu" size={size} color={color} />
           ),
         }}
       />

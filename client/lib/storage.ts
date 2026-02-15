@@ -410,6 +410,15 @@ export const transactionsStorage = {
     return newTransaction;
   },
   
+  update: async (id: string, updates: Partial<Omit<StockTransaction, "id" | "createdAt">>) => {
+    const transactions = await transactionsStorage.getAll();
+    const index = transactions.findIndex(t => t.id === id);
+    if (index === -1) throw new Error("Transaction not found");
+    transactions[index] = { ...transactions[index], ...updates };
+    await setItems(STORAGE_KEYS.TRANSACTIONS, transactions);
+    return transactions[index];
+  },
+
   delete: async (id: string) => {
     const transactions = await transactionsStorage.getAll();
     const filtered = transactions.filter(t => t.id !== id);

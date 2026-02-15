@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, Platform, TouchableOpacity } from "react-native";
+import { View, StyleSheet, Platform, TouchableOpacity, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import {
@@ -190,68 +190,90 @@ export default function HoldingDetailScreen() {
     if (!holding) return;
 
     try {
+      const monthMap: { [key: string]: number } = {
+        Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+        Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+      };
+
       // Parse dates and sort by date/time
       const parsedTransactions = importedTx.map((tx) => {
-        const dateParts = tx.date.split(" ");
-        const day = parseInt(dateParts[0]);
-        const month = dateParts[1];
-        const year = parseInt("20" + dateParts[2]);
-        
-        const monthMap: { [key: string]: number } = {
-          Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-          Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
-        };
-        
-        const timeParts = tx.time.match(/(\d+):(\d+)(AM|PM)/);
-        let hours = parseInt(timeParts[1]);
-        const minutes = parseInt(timeParts[2]);
-        const period = timeParts[3];
-        
-        if (period === "PM" && hours !== 12) hours += 12;
-        if (period === "AM" && hours === 12) hours = 0;
-        
-        const dateObj = new Date(year, monthMap[month], day, hours, minutes);
-        
-        return {
-          ...tx,
-          parsedDate: dateObj,
-        };
+        let dateObj = new Date();
+
+        try {
+          const dateParts = tx.date.trim().split(/\s+/);
+          const day = parseInt(dateParts[0]);
+          const month = dateParts[1];
+          const yearStr = dateParts[2];
+          const year = yearStr.length === 2 ? parseInt("20" + yearStr) : parseInt(yearStr);
+
+          // Handle time with or without space before AM/PM: "01:49PM" or "01:49 PM"
+          const timeStr = (tx.time || "").replace(/\s+/g, "");
+          const timeParts = timeStr.match(/(\d+):(\d+)(AM|PM)/i);
+          let hours = 0;
+          let minutes = 0;
+          if (timeParts) {
+            hours = parseInt(timeParts[1]);
+            minutes = parseInt(timeParts[2]);
+            const period = timeParts[3].toUpperCase();
+            if (period === "PM" && hours !== 12) hours += 12;
+            if (period === "AM" && hours === 12) hours = 0;
+          }
+
+          dateObj = new Date(year, monthMap[month] ?? 0, day, hours, minutes);
+        } catch (e) {
+          console.warn("Date parse failed for tx, using current date:", tx.date, tx.time);
+        }
+
+        return { ...tx, parsedDate: dateObj };
       });
 
       // Sort by date (oldest first)
       parsedTransactions.sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
-      // Add transactions to database
+      // Add transactions to database using the correct method
       for (const tx of parsedTransactions) {
-        const transaction: Omit<StockTransaction, "id"> = {
+        await transactionsStorage.add({
           holdingId: holding.id,
+          symbol: holding.symbol,
           type: tx.type,
           shares: tx.shares,
           pricePerShare: tx.price,
-          totalAmount: tx.shares * tx.price,
+          fees: 0,
           date: tx.parsedDate.toISOString(),
-          notes: `Imported from screenshot`,
-        };
-        
-        await transactionsStorage.create(transaction);
+          notes: "Imported from screenshot",
+        });
       }
 
       // Reload transactions
       const updatedTx = await transactionsStorage.getByHolding(holding.id);
       setTransactions(updatedTx);
 
-      // Recalculate average cost and shares
-      let totalShares = 0;
-      let totalCost = 0;
+      // Recalculate average cost and shares from all transactions
+      // Include pre-existing shares not covered by transactions
+      let txShares = 0;
+      let txCost = 0;
 
       for (const tx of updatedTx) {
         if (tx.type === "buy") {
-          totalCost += tx.shares * tx.pricePerShare;
-          totalShares += tx.shares;
+          txCost += tx.shares * tx.pricePerShare;
+          txShares += tx.shares;
         } else if (tx.type === "sell") {
-          totalShares -= tx.shares;
+          txShares -= tx.shares;
         }
       }
+
+      // If holding had pre-existing shares before transactions, preserve them
+      const preExistingShares = holding.shares - txShares + parsedTransactions.reduce(
+        (sum, tx) => sum + (tx.type === "buy" ? tx.shares : -tx.shares), 0
+      );
+      
+      const totalShares = preExistingShares > 0
+        ? txShares + preExistingShares
+        : txShares;
+      
+      const totalCost = preExistingShares > 0
+        ? txCost + preExistingShares * holding.averageCost
+        : txCost;
 
       const newAvgCost = totalShares > 0 ? totalCost / totalShares : holding.averageCost;
 
@@ -267,13 +289,71 @@ export default function HoldingDetailScreen() {
 
       Alert.alert(
         "Success",
-        `Imported ${importedTx.length} transaction(s) successfully!`
+        `Imported ${parsedTransactions.length} transaction(s) successfully!`
       );
 
       loadHolding();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to import transactions:", error);
-      Alert.alert("Error", "Failed to import transactions. Please try again.");
+      Alert.alert("Error", `Failed to import transactions.\n\n${error?.message || "Unknown error"}`);
+    }
+  };
+
+  const recalcHoldingFromTransactions = async () => {
+    if (!holding) return;
+    const allTx = await transactionsStorage.getByHolding(holding.id);
+    setTransactions(allTx);
+
+    let txShares = 0;
+    let txCost = 0;
+    for (const tx of allTx) {
+      if (tx.type === "buy") {
+        txCost += tx.shares * tx.pricePerShare;
+        txShares += tx.shares;
+      } else {
+        txShares -= tx.shares;
+      }
+    }
+
+    // Preserve pre-existing shares not covered by transactions
+    const prevNetTx = transactions.reduce((sum, tx) =>
+      sum + (tx.type === "buy" ? tx.shares : -tx.shares), 0);
+    const preExisting = holding.shares - prevNetTx;
+
+    const totalShares = preExisting > 0 ? txShares + preExisting : txShares;
+    const totalCost = preExisting > 0
+      ? txCost + preExisting * ((holding.averageCost * holding.shares - transactions.reduce(
+          (s, t) => s + (t.type === "buy" ? t.shares * t.pricePerShare : 0), 0
+        )) / preExisting)
+      : txCost;
+
+    const newAvgCost = totalShares > 0 ? totalCost / totalShares : holding.averageCost;
+
+    await holdingsStorage.update(holding.id, {
+      shares: Math.max(0, totalShares),
+      averageCost: newAvgCost,
+    });
+
+    loadHolding();
+  };
+
+  const handleUpdateTransaction = async (id: string, updates: { shares: number; pricePerShare: number; fees: number }) => {
+    try {
+      await transactionsStorage.update(id, updates);
+      await recalcHoldingFromTransactions();
+    } catch (error) {
+      console.error("Failed to update transaction:", error);
+      Alert.alert("Error", "Failed to update transaction.");
+    }
+  };
+
+  const handleDeleteTransaction = async (id: string) => {
+    try {
+      await transactionsStorage.delete(id);
+      await recalcHoldingFromTransactions();
+    } catch (error) {
+      console.error("Failed to delete transaction:", error);
+      Alert.alert("Error", "Failed to delete transaction.");
     }
   };
 
@@ -465,6 +545,8 @@ export default function HoldingDetailScreen() {
         transactions={transactions}
         initialShares={holding.shares}
         initialAvgCost={holding.averageCost}
+        onUpdateTransaction={handleUpdateTransaction}
+        onDeleteTransaction={handleDeleteTransaction}
       />
 
       <StockAnalysis symbol={holding.symbol} />

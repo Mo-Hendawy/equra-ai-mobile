@@ -1,9 +1,13 @@
 import React, { useMemo, useState } from "react";
-import { View, StyleSheet, useWindowDimensions } from "react-native";
+import { View, StyleSheet, useWindowDimensions, TouchableOpacity, Alert, Platform } from "react-native";
 import Svg, { Path, Circle, Line, Text as SvgText, Rect, G } from "react-native-svg";
+import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 import { Card } from "@/components/Card";
+import { FormInput } from "@/components/FormInput";
 import { ThemedText } from "@/components/ThemedText";
+import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Typography } from "@/constants/theme";
 import type { StockTransaction } from "@/types";
@@ -12,6 +16,8 @@ interface TransactionHistoryProps {
   transactions: StockTransaction[];
   initialShares: number;
   initialAvgCost: number;
+  onUpdateTransaction?: (id: string, updates: { shares: number; pricePerShare: number; fees: number }) => void;
+  onDeleteTransaction?: (id: string) => void;
 }
 
 interface CostDataPoint {
@@ -24,11 +30,17 @@ interface CostDataPoint {
 export function TransactionHistory({ 
   transactions, 
   initialShares, 
-  initialAvgCost 
+  initialAvgCost,
+  onUpdateTransaction,
+  onDeleteTransaction,
 }: TransactionHistoryProps) {
   const { theme } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const [selectedDot, setSelectedDot] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editShares, setEditShares] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editFees, setEditFees] = useState("");
 
   const sortedTransactions = useMemo(() => {
     return [...transactions].sort((a, b) => 
@@ -318,52 +330,196 @@ export function TransactionHistory({
 
       <ThemedText type="h4" style={[styles.title, { marginTop: Spacing.lg }]}>Transactions</ThemedText>
       
-      {sortedTransactions.map((tx, index) => (
-        <View 
-          key={tx.id} 
-          style={[
-            styles.transactionRow,
-            { borderBottomColor: theme.textSecondary + "20" },
-            index === sortedTransactions.length - 1 && { borderBottomWidth: 0 }
-          ]}
-        >
-          <View style={styles.txLeft}>
-            <View style={[
-              styles.txBadge, 
-              { backgroundColor: tx.type === "buy" ? theme.success + "20" : theme.error + "20" }
-            ]}>
-              <ThemedText style={[
-                styles.txBadgeText, 
-                { color: tx.type === "buy" ? theme.success : theme.error }
-              ]}>
-                {tx.type.toUpperCase()}
-              </ThemedText>
-            </View>
-            <View>
-              <ThemedText style={styles.txDate}>
-                {new Date(tx.date).toLocaleDateString("en-US", { 
-                  month: "short", 
-                  day: "numeric",
-                  year: "numeric"
-                })}
-              </ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {tx.shares} shares @ {formatCurrency(tx.pricePerShare)}
-              </ThemedText>
-            </View>
+      {sortedTransactions.map((tx, index) => {
+        const isEditing = editingId === tx.id;
+        const canEdit = onUpdateTransaction || onDeleteTransaction;
+
+        const showRowActions = () => {
+          if (!canEdit) return;
+          Alert.alert(
+            `${tx.type.toUpperCase()} ${tx.shares} @ ${formatCurrency(tx.pricePerShare)}`,
+            new Date(tx.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            [
+              ...(onUpdateTransaction
+                ? [{
+                    text: "Edit",
+                    onPress: () => {
+                      setEditingId(tx.id);
+                      setEditShares(tx.shares.toString());
+                      setEditPrice(tx.pricePerShare.toString());
+                      setEditFees((tx.fees || 0).toString());
+                    },
+                  }]
+                : []),
+              ...(onDeleteTransaction
+                ? [{
+                    text: "Delete",
+                    style: "destructive" as const,
+                    onPress: () => {
+                      Alert.alert(
+                        "Delete Transaction",
+                        `Delete this ${tx.type} of ${tx.shares} shares?`,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Delete",
+                            style: "destructive",
+                            onPress: () => {
+                              onDeleteTransaction(tx.id);
+                              if (Platform.OS !== "web") {
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                              }
+                            },
+                          },
+                        ]
+                      );
+                    },
+                  }]
+                : []),
+              { text: "Cancel", style: "cancel" },
+            ]
+          );
+        };
+
+        return (
+          <View
+            key={tx.id}
+            style={[
+              styles.transactionRow,
+              { borderBottomColor: theme.textSecondary + "20" },
+              index === sortedTransactions.length - 1 && { borderBottomWidth: 0 },
+            ]}
+          >
+            {isEditing ? (
+              <View style={styles.editContainer}>
+                <View style={styles.editHeader}>
+                  <ThemedText style={{ fontWeight: "600" }}>
+                    Edit {tx.type.toUpperCase()} Transaction
+                  </ThemedText>
+                  <TouchableOpacity
+                    onPress={() => setEditingId(null)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Feather name="x" size={20} color={theme.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+                <FormInput
+                  label="Shares"
+                  value={editShares}
+                  onChangeText={setEditShares}
+                  keyboardType="numeric"
+                  containerStyle={{ marginBottom: Spacing.sm }}
+                />
+                <FormInput
+                  label="Price per Share (EGP)"
+                  value={editPrice}
+                  onChangeText={setEditPrice}
+                  keyboardType="decimal-pad"
+                  containerStyle={{ marginBottom: Spacing.sm }}
+                />
+                <FormInput
+                  label="Fees (EGP)"
+                  value={editFees}
+                  onChangeText={setEditFees}
+                  keyboardType="decimal-pad"
+                  containerStyle={{ marginBottom: Spacing.md }}
+                />
+                <Button
+                  onPress={() => {
+                    const shares = parseFloat(editShares);
+                    const price = parseFloat(editPrice);
+                    const fees = parseFloat(editFees) || 0;
+                    if (!shares || !price || shares <= 0 || price <= 0) {
+                      Alert.alert("Invalid", "Shares and price must be greater than 0.");
+                      return;
+                    }
+                    onUpdateTransaction?.(tx.id, { shares, pricePerShare: price, fees });
+                    setEditingId(null);
+                    if (Platform.OS !== "web") {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }
+                  }}
+                  style={{ marginBottom: 0 }}
+                >
+                  Save Changes
+                </Button>
+              </View>
+            ) : canEdit ? (
+              <TouchableOpacity
+                style={styles.txRowTouchable}
+                onPress={showRowActions}
+                activeOpacity={0.7}
+              >
+                <View style={styles.txLeft}>
+                  <View
+                    style={[
+                      styles.txBadge,
+                      { backgroundColor: tx.type === "buy" ? theme.success + "20" : theme.error + "20" },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.txBadgeText,
+                        { color: tx.type === "buy" ? theme.success : theme.error },
+                      ]}
+                    >
+                      {tx.type.toUpperCase()}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={[styles.txLine, { color: theme.textSecondary }]}>
+                    {new Date(tx.date).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                    {" · "}
+                    {tx.shares} @ {formatCurrency(tx.pricePerShare)}
+                  </ThemedText>
+                </View>
+                <ThemedText style={[Typography.mono, styles.txAmount]}>
+                  {tx.type === "buy"
+                    ? `-EGP ${formatCurrency(tx.shares * tx.pricePerShare + (tx.fees || 0))}`
+                    : `+EGP ${formatCurrency(tx.shares * tx.pricePerShare - (tx.fees || 0))}`}
+                </ThemedText>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.txRowTouchable}>
+                <View style={styles.txLeft}>
+                  <View
+                    style={[
+                      styles.txBadge,
+                      { backgroundColor: tx.type === "buy" ? theme.success + "20" : theme.error + "20" },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.txBadgeText,
+                        { color: tx.type === "buy" ? theme.success : theme.error },
+                      ]}
+                    >
+                      {tx.type.toUpperCase()}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={[styles.txLine, { color: theme.textSecondary }]}>
+                    {new Date(tx.date).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                    {" · "}
+                    {tx.shares} @ {formatCurrency(tx.pricePerShare)}
+                  </ThemedText>
+                </View>
+                <ThemedText style={[Typography.mono, styles.txAmount]}>
+                  {tx.type === "buy"
+                    ? `-EGP ${formatCurrency(tx.shares * tx.pricePerShare + (tx.fees || 0))}`
+                    : `+EGP ${formatCurrency(tx.shares * tx.pricePerShare - (tx.fees || 0))}`}
+                </ThemedText>
+              </View>
+            )}
           </View>
-          <View style={styles.txRight}>
-            <ThemedText style={[Typography.mono, styles.txAmount]}>
-              {tx.type === "buy" ? "-" : "+"}EGP {formatCurrency(tx.shares * tx.pricePerShare)}
-            </ThemedText>
-            {tx.fees > 0 ? (
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                Fees: {formatCurrency(tx.fees)}
-              </ThemedText>
-            ) : null}
-          </View>
-        </View>
-      ))}
+        );
+      })}
     </Card>
   );
 }
@@ -400,34 +556,46 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   transactionRow: {
+    borderBottomWidth: 1,
+  },
+  txRowTouchable: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
+    paddingVertical: Spacing.xs + 2,
+    paddingHorizontal: 0,
   },
   txLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
+    gap: Spacing.sm,
+    flex: 1,
   },
   txBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: BorderRadius.xs,
   },
   txBadgeText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "700",
   },
-  txDate: {
-    fontWeight: "500",
-    marginBottom: 2,
-  },
-  txRight: {
-    alignItems: "flex-end",
+  txLine: {
+    fontSize: 12,
+    flex: 1,
   },
   txAmount: {
+    fontSize: 12,
     fontWeight: "600",
+  },
+  editContainer: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+  },
+  editHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
   },
 });
