@@ -23,6 +23,7 @@ import { holdingsStorage, realizedGainsStorage, transactionsStorage } from "@/li
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { StockAnalysis } from "@/components/StockAnalysis";
 import { TransactionImportModal } from "@/components/TransactionImportModal";
+import { ManusDeepAnalysis } from "@/components/ManusDeepAnalysis";
 import { STOCK_ROLES, STOCK_STATUSES } from "@/constants/egxStocks";
 import type { PortfolioHolding, StockTransaction } from "@/types";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -550,6 +551,8 @@ export default function HoldingDetailScreen() {
       />
 
       <StockAnalysis symbol={holding.symbol} />
+
+      <ManusDeepAnalysis symbol={holding.symbol} />
 
       <Card style={styles.section}>
         <ThemedText type="h4" style={styles.sectionTitle}>
