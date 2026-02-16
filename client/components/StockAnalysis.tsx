@@ -209,16 +209,25 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
 
   return (
     <Card style={styles.card}>
-      {/* Title + Refresh */}
+      {/* Title + Source Badge + Refresh */}
       <View style={styles.titleRow}>
         <ThemedText type="h4" style={styles.title}>AI Stock Analysis</ThemedText>
-        <TouchableOpacity onPress={handleRefresh} disabled={anyLoading} style={styles.refreshButton}>
-          {anyLoading ? (
-            <ActivityIndicator size="small" color={theme.primary} />
-          ) : (
-            <Feather name="refresh-cw" size={18} color={theme.primary} />
+        <View style={styles.titleActions}>
+          {activeResult && !activeResult.loading && (
+            <View style={[styles.sourceBadge, { backgroundColor: (activeResult.result ? "#10B981" : "#F59E0B") + "20" }]}>
+              <ThemedText style={[styles.sourceBadgeText, { color: activeResult.result ? "#10B981" : "#F59E0B" }]}>
+                {activeResult.result ? activeResult.providerName : "Failed"}
+              </ThemedText>
+            </View>
           )}
-        </TouchableOpacity>
+          <TouchableOpacity onPress={handleRefresh} disabled={anyLoading} style={styles.refreshButton}>
+            {anyLoading ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : (
+              <Feather name="refresh-cw" size={18} color={theme.primary} />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Consensus Bar */}
@@ -552,6 +561,9 @@ const styles = StyleSheet.create({
   card: { marginBottom: Spacing.lg },
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md },
   title: { marginBottom: 0 },
+  titleActions: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  sourceBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 3, borderRadius: BorderRadius.xs },
+  sourceBadgeText: { fontSize: 10, fontWeight: "700" },
   refreshButton: { padding: Spacing.xs },
   consensusBar: { flexDirection: "row", gap: Spacing.xs, marginBottom: Spacing.md },
   consensusItem: {
