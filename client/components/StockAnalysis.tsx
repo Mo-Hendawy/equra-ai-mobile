@@ -73,10 +73,12 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
   const [results, setResults] = useState<Record<string, ProviderResult>>({});
   const [activeProvider, setActiveProvider] = useState<string>("");
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
+  const [started, setStarted] = useState(false);
 
-  useEffect(() => {
+  const handleStart = () => {
+    setStarted(true);
     fetchAllProviders();
-  }, [symbol]);
+  };
 
   const fetchAllProviders = async () => {
     try {
@@ -194,6 +196,21 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
   const anyLoading = Object.values(results).some((r) => r.loading);
   const activeResult = results[activeProvider];
   const analysis = activeResult?.result;
+
+  if (!started) {
+    return (
+      <Card style={styles.card}>
+        <ThemedText type="h4" style={styles.title}>AI Stock Analysis</ThemedText>
+        <TouchableOpacity
+          onPress={handleStart}
+          style={[styles.runButton, { backgroundColor: theme.primary }]}
+        >
+          <Feather name="play" size={16} color="#fff" />
+          <ThemedText style={styles.runButtonText}>Run Analysis</ThemedText>
+        </TouchableOpacity>
+      </Card>
+    );
+  }
 
   if (providers.length === 0 && allLoading) {
     return (
@@ -607,6 +624,16 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   loadingText: { fontSize: 14 },
+  runButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: BorderRadius.md,
+    gap: 8,
+    marginTop: Spacing.sm,
+  },
+  runButtonText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   errorBox: {
     flexDirection: "row",
     alignItems: "center",
