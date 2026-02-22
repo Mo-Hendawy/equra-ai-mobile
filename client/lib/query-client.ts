@@ -28,6 +28,7 @@ export async function apiRequest(
   method: string,
   route: string,
   data?: unknown | undefined,
+  options?: { signal?: AbortSignal },
 ): Promise<Response> {
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
@@ -37,6 +38,7 @@ export async function apiRequest(
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
+    signal: options?.signal,
   });
 
   await throwIfResNotOk(res);

@@ -79,6 +79,7 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
   const [started, setStarted] = useState(false);
   const [analysisDate, setAnalysisDate] = useState<string | null>(null);
   const [loadingCache, setLoadingCache] = useState(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     loadCachedResults();
@@ -112,9 +113,29 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
     fetchAllProviders();
   };
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setResults((prev) => {
+      const stopped: Record<string, ProviderResult> = {};
+      Object.entries(prev).forEach(([key, val]) => {
+        stopped[key] = val.loading
+          ? { ...val, loading: false, error: "Stopped" }
+          : val;
+      });
+      return stopped;
+    });
+  };
+
   const fetchAllProviders = async () => {
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const res = await apiRequest("GET", "/api/ai/trusted-providers");
+      const res = await apiRequest("GET", "/api/ai/trusted-providers", undefined, { signal: controller.signal });
       const data = await res.json();
       const providerList: ProviderInfo[] = data.providers || [];
       setProviders(providerList);
@@ -139,11 +160,13 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
         setResults(initialResults);
 
         providerList.forEach((p) => {
-          fetchProviderAnalysis(p.id, p.name, p.model);
+          fetchProviderAnalysis(p.id, p.name, p.model, controller.signal);
         });
       }
-    } catch (error) {
-      console.log("Failed to fetch trusted providers:", error);
+    } catch (error: any) {
+      if (error?.name !== "AbortError") {
+        console.log("Failed to fetch trusted providers:", error);
+      }
     }
   };
 
@@ -151,9 +174,9 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
   const totalProviders = useRef(0);
   const latestProviders = useRef<ProviderInfo[]>([]);
 
-  const fetchProviderAnalysis = async (providerId: string, providerName: string, model: string) => {
+  const fetchProviderAnalysis = async (providerId: string, providerName: string, model: string, signal?: AbortSignal) => {
     try {
-      const res = await apiRequest("GET", `/api/ai/${providerId}/stock-analysis/${symbol}`);
+      const res = await apiRequest("GET", `/api/ai/${providerId}/stock-analysis/${symbol}`, undefined, { signal });
       const data = await res.json();
 
       setResults((prev) => {
@@ -177,6 +200,7 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
         return updated;
       });
     } catch (error: any) {
+      if (error?.name === "AbortError") return;
       setResults((prev) => {
         const updated = {
           ...prev,
@@ -201,21 +225,7 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
 
   const handleRefresh = () => {
     setShowDetailedAnalysis(false);
-    const resetResults: Record<string, ProviderResult> = {};
-    providers.forEach((p) => {
-      resetResults[p.id] = {
-        provider: p.id,
-        providerName: p.name,
-        model: p.model,
-        result: null,
-        loading: true,
-        durationMs: 0,
-      };
-    });
-    setResults(resetResults);
-    providers.forEach((p) => {
-      fetchProviderAnalysis(p.id, p.name, p.model);
-    });
+    fetchAllProviders();
   };
 
   const formatCurrency = (value: number) => {
@@ -294,13 +304,16 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
               </ThemedText>
             </View>
           )}
-          <TouchableOpacity onPress={handleRefresh} disabled={anyLoading} style={styles.refreshButton}>
-            {anyLoading ? (
-              <ActivityIndicator size="small" color={theme.primary} />
-            ) : (
+          {anyLoading ? (
+            <TouchableOpacity onPress={handleStop} style={[styles.stopButton, { borderColor: "#EF4444" }]}>
+              <Feather name="square" size={12} color="#EF4444" />
+              <ThemedText style={styles.stopButtonText}>Stop</ThemedText>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
               <Feather name="refresh-cw" size={18} color={theme.primary} />
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
       {activeResult && !activeResult.loading && (activeResult.ragUsed || analysisDate) && (
@@ -658,6 +671,8 @@ const styles = StyleSheet.create({
   sourceBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 3, borderRadius: BorderRadius.xs },
   sourceBadgeText: { fontSize: 10, fontWeight: "700" },
   refreshButton: { padding: Spacing.xs },
+  stopButton: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: BorderRadius.xs, borderWidth: 1 },
+  stopButtonText: { fontSize: 11, fontWeight: "700", color: "#EF4444" },
   consensusBar: { flexDirection: "row", gap: Spacing.xs, marginBottom: Spacing.md },
   consensusItem: {
     flex: 1,
