@@ -261,77 +261,75 @@ export default function RealizedGainsScreen() {
         : 0;
 
     return (
-      <TouchableOpacity onPress={() => handleCardPress(item)} activeOpacity={0.7}>
-        <Card style={styles.gainCard}>
-          <View style={styles.gainHeader}>
-            <ThemedText type="h4">{item.symbol}</ThemedText>
+      <Card style={styles.gainCard} onPress={() => handleCardPress(item)}>
+        <View style={styles.gainHeader}>
+          <ThemedText type="h4">{item.symbol}</ThemedText>
+          <ThemedText
+            style={[
+              styles.profit,
+              Typography.mono,
+              { color: isProfit ? theme.success : theme.error },
+            ]}
+          >
+            {isProfit ? "+" : ""}
+            {formatCurrency(item.profit)}
+          </ThemedText>
+        </View>
+        <View style={styles.gainDetails}>
+          <View style={styles.detailRow}>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              Shares
+            </ThemedText>
+            <ThemedText type="small">{item.shares}</ThemedText>
+          </View>
+          <View style={styles.detailRow}>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              Buy Price
+            </ThemedText>
+            <ThemedText type="small" style={Typography.mono}>
+              {formatCurrency(item.buyPrice)}
+            </ThemedText>
+          </View>
+          <View style={styles.detailRow}>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              Sell Price
+            </ThemedText>
+            <ThemedText type="small" style={Typography.mono}>
+              {formatCurrency(item.sellPrice)}
+            </ThemedText>
+          </View>
+          <View style={styles.detailRow}>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              Return
+            </ThemedText>
             <ThemedText
+              type="small"
               style={[
-                styles.profit,
                 Typography.mono,
                 { color: isProfit ? theme.success : theme.error },
               ]}
             >
               {isProfit ? "+" : ""}
-              {formatCurrency(item.profit)}
+              {profitPercent.toFixed(2)}%
             </ThemedText>
           </View>
-          <View style={styles.gainDetails}>
-            <View style={styles.detailRow}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                Shares
-              </ThemedText>
-              <ThemedText type="small">{item.shares}</ThemedText>
-            </View>
-            <View style={styles.detailRow}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                Buy Price
-              </ThemedText>
-              <ThemedText type="small" style={Typography.mono}>
-                {formatCurrency(item.buyPrice)}
-              </ThemedText>
-            </View>
-            <View style={styles.detailRow}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                Sell Price
-              </ThemedText>
-              <ThemedText type="small" style={Typography.mono}>
-                {formatCurrency(item.sellPrice)}
-              </ThemedText>
-            </View>
-            <View style={styles.detailRow}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                Return
-              </ThemedText>
-              <ThemedText
-                type="small"
-                style={[
-                  Typography.mono,
-                  { color: isProfit ? theme.success : theme.error },
-                ]}
-              >
-                {isProfit ? "+" : ""}
-                {profitPercent.toFixed(2)}%
-              </ThemedText>
-            </View>
-          </View>
-          <View style={styles.dateRow}>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              {new Date(item.buyDate).toLocaleDateString("en-EG", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-              {" → "}
-              {new Date(item.sellDate).toLocaleDateString("en-EG", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </ThemedText>
-          </View>
-        </Card>
-      </TouchableOpacity>
+        </View>
+        <View style={styles.dateRow}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+            {new Date(item.buyDate).toLocaleDateString("en-EG", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+            {" → "}
+            {new Date(item.sellDate).toLocaleDateString("en-EG", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </ThemedText>
+        </View>
+      </Card>
     );
   };
 
@@ -370,13 +368,14 @@ export default function RealizedGainsScreen() {
         }
       />
 
-      {/* FAB Add Button */}
+      {/* Add Button */}
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: theme.primary }]}
+        style={[styles.addButton, { backgroundColor: theme.primary, bottom: insets.bottom + 70 }]}
         onPress={openAdd}
         activeOpacity={0.8}
       >
-        <Feather name="plus" size={24} color="#fff" />
+        <Feather name="plus" size={20} color="#fff" />
+        <ThemedText style={styles.addButtonText}>Add Trade</ThemedText>
       </TouchableOpacity>
 
       {/* Add/Edit Modal */}
@@ -547,21 +546,22 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "rgba(0,0,0,0.05)",
   },
-  fab: {
+  addButton: {
     position: "absolute",
     right: Spacing.lg,
-    bottom: Spacing.xl + 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 24,
     elevation: 6,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.27,
     shadowRadius: 4.65,
   },
+  addButtonText: { color: "#fff", fontWeight: "600", fontSize: 14 },
   modalContainer: { flex: 1 },
   modalHeader: {
     flexDirection: "row",
