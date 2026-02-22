@@ -633,20 +633,33 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
                   <View style={[styles.aiReasoningContainer, { backgroundColor: theme.backgroundSecondary }]}>
                     <ThemedText style={[styles.aiReasoning, { color: theme.text }]}>{analysis.reasoning}</ThemedText>
                   </View>
+                </View>
+              )}
 
-                  {analysis.keyPoints?.length > 0 && (
-                    <View style={styles.keyPointsContainer}>
-                      <ThemedText style={[styles.keyPointsTitle, { color: theme.textSecondary }]}>Key Takeaways:</ThemedText>
-                      {analysis.keyPoints.map((point: string, index: number) => (
-                        <View key={index} style={[styles.keyPointItem, { backgroundColor: theme.backgroundSecondary }]}>
-                          <ThemedText style={[styles.keyPointNumber, { color: PROVIDER_COLORS[activeProvider] || theme.primary }]}>
-                            {index + 1}
-                          </ThemedText>
-                          <ThemedText style={[styles.keyPointText, { color: theme.text }]}>{point}</ThemedText>
-                        </View>
-                      ))}
-                    </View>
-                  )}
+              {/* Analysis Method */}
+              {analysis.analysisMethod && (
+                <View style={styles.section}>
+                  <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>Valuation Method</ThemedText>
+                  <View style={[styles.aiReasoningContainer, { backgroundColor: theme.backgroundSecondary }]}>
+                    <ThemedText style={[styles.aiReasoning, { color: theme.text }]}>{analysis.analysisMethod}</ThemedText>
+                  </View>
+                </View>
+              )}
+
+              {/* Key Takeaways */}
+              {analysis.keyPoints?.length > 0 && (
+                <View style={styles.section}>
+                  <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>Key Takeaways</ThemedText>
+                  <View style={styles.keyPointsContainer}>
+                    {analysis.keyPoints.map((point: string, index: number) => (
+                      <View key={index} style={[styles.keyPointItem, { backgroundColor: theme.backgroundSecondary }]}>
+                        <ThemedText style={[styles.keyPointNumber, { color: PROVIDER_COLORS[activeProvider] || theme.primary }]}>
+                          {index + 1}
+                        </ThemedText>
+                        <ThemedText style={[styles.keyPointText, { color: theme.text }]}>{point}</ThemedText>
+                      </View>
+                    ))}
+                  </View>
                 </View>
               )}
 
