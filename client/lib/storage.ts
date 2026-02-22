@@ -341,6 +341,14 @@ export const realizedGainsStorage = {
     await setItems(STORAGE_KEYS.REALIZED_GAINS, gains);
     return newGain;
   },
+
+  update: async (id: string, updates: Partial<Omit<RealizedGain, "id" | "createdAt">>) => {
+    const gains = await realizedGainsStorage.getAll();
+    const idx = gains.findIndex((g) => g.id === id);
+    if (idx === -1) return;
+    gains[idx] = { ...gains[idx], ...updates };
+    await setItems(STORAGE_KEYS.REALIZED_GAINS, gains);
+  },
   
   delete: async (id: string) => {
     const gains = await realizedGainsStorage.getAll();
