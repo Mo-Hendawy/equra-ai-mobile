@@ -22,6 +22,7 @@ interface ProviderResult {
   error?: string;
   durationMs: number;
   loading: boolean;
+  ragUsed?: boolean;
 }
 
 interface StockAnalysisResult {
@@ -124,6 +125,7 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
           error: data.error,
           durationMs: data.durationMs || 0,
           loading: false,
+          ragUsed: data.ragUsed,
         },
       }));
     } catch (error: any) {
@@ -214,11 +216,20 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
         <ThemedText type="h4" style={styles.title}>AI Stock Analysis</ThemedText>
         <View style={styles.titleActions}>
           {activeResult && !activeResult.loading && (
-            <View style={[styles.sourceBadge, { backgroundColor: (activeResult.result ? "#10B981" : "#F59E0B") + "20" }]}>
-              <ThemedText style={[styles.sourceBadgeText, { color: activeResult.result ? "#10B981" : "#F59E0B" }]}>
-                {activeResult.result ? activeResult.providerName : "Failed"}
-              </ThemedText>
-            </View>
+            <>
+              <View style={[styles.sourceBadge, { backgroundColor: (activeResult.result ? "#10B981" : "#F59E0B") + "20" }]}>
+                <ThemedText style={[styles.sourceBadgeText, { color: activeResult.result ? "#10B981" : "#F59E0B" }]}>
+                  {activeResult.result ? activeResult.providerName : "Failed"}
+                </ThemedText>
+              </View>
+              {activeResult.result && activeResult.ragUsed && (
+                <View style={[styles.sourceBadge, { backgroundColor: "#3B82F620", marginLeft: 6 }]}>
+                  <ThemedText style={[styles.sourceBadgeText, { color: "#3B82F6" }]}>
+                    Based on financial reports
+                  </ThemedText>
+                </View>
+              )}
+            </>
           )}
           <TouchableOpacity onPress={handleRefresh} disabled={anyLoading} style={styles.refreshButton}>
             {anyLoading ? (
