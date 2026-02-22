@@ -570,9 +570,9 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
 
 const styles = StyleSheet.create({
   card: { marginBottom: Spacing.lg },
-  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md },
+  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: Spacing.md },
   title: { marginBottom: 0 },
-  titleActions: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  titleActions: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, flexWrap: "wrap", justifyContent: "flex-end", flex: 1, marginLeft: Spacing.sm },
   sourceBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 3, borderRadius: BorderRadius.xs },
   sourceBadgeText: { fontSize: 10, fontWeight: "700" },
   refreshButton: { padding: Spacing.xs },
