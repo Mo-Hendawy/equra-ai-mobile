@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+
+const CACHE_KEY = (symbol: string) => `stock_analysis_cache_${symbol}`;
 
 interface ProviderInfo {
   id: string;
@@ -74,6 +77,35 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
   const [activeProvider, setActiveProvider] = useState<string>("");
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
   const [started, setStarted] = useState(false);
+  const [analysisDate, setAnalysisDate] = useState<string | null>(null);
+  const [loadingCache, setLoadingCache] = useState(true);
+
+  useEffect(() => {
+    loadCachedResults();
+  }, [symbol]);
+
+  const loadCachedResults = async () => {
+    try {
+      const cached = await AsyncStorage.getItem(CACHE_KEY(symbol));
+      if (cached) {
+        const { providers: cachedProviders, results: cachedResults, activeProvider: cachedActive, date } = JSON.parse(cached);
+        setProviders(cachedProviders);
+        setResults(cachedResults);
+        setActiveProvider(cachedActive);
+        setAnalysisDate(date);
+        setStarted(true);
+      }
+    } catch {}
+    setLoadingCache(false);
+  };
+
+  const saveCacheResults = async (provs: ProviderInfo[], res: Record<string, ProviderResult>, active: string) => {
+    try {
+      const date = new Date().toLocaleString();
+      setAnalysisDate(date);
+      await AsyncStorage.setItem(CACHE_KEY(symbol), JSON.stringify({ providers: provs, results: res, activeProvider: active, date }));
+    } catch {}
+  };
 
   const handleStart = () => {
     setStarted(true);
@@ -89,6 +121,9 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
 
       if (providerList.length > 0) {
         setActiveProvider(providerList[0].id);
+        latestProviders.current = providerList;
+        completedCount.current = 0;
+        totalProviders.current = providerList.length;
 
         const initialResults: Record<string, ProviderResult> = {};
         providerList.forEach((p) => {
@@ -112,37 +147,55 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
     }
   };
 
+  const completedCount = useRef(0);
+  const totalProviders = useRef(0);
+  const latestProviders = useRef<ProviderInfo[]>([]);
+
   const fetchProviderAnalysis = async (providerId: string, providerName: string, model: string) => {
     try {
       const res = await apiRequest("GET", `/api/ai/${providerId}/stock-analysis/${symbol}`);
       const data = await res.json();
 
-      setResults((prev) => ({
-        ...prev,
-        [providerId]: {
-          provider: providerId,
-          providerName,
-          model,
-          result: data.result || null,
-          error: data.error,
-          durationMs: data.durationMs || 0,
-          loading: false,
-          ragUsed: data.ragUsed,
-        },
-      }));
+      setResults((prev) => {
+        const updated = {
+          ...prev,
+          [providerId]: {
+            provider: providerId,
+            providerName,
+            model,
+            result: data.result || null,
+            error: data.error,
+            durationMs: data.durationMs || 0,
+            loading: false,
+            ragUsed: data.ragUsed,
+          },
+        };
+        completedCount.current++;
+        if (completedCount.current >= totalProviders.current) {
+          saveCacheResults(latestProviders.current, updated, latestProviders.current[0]?.id || "");
+        }
+        return updated;
+      });
     } catch (error: any) {
-      setResults((prev) => ({
-        ...prev,
-        [providerId]: {
-          provider: providerId,
-          providerName,
-          model,
-          result: null,
-          error: error.message || "Failed",
-          durationMs: 0,
-          loading: false,
-        },
-      }));
+      setResults((prev) => {
+        const updated = {
+          ...prev,
+          [providerId]: {
+            provider: providerId,
+            providerName,
+            model,
+            result: null,
+            error: error.message || "Failed",
+            durationMs: 0,
+            loading: false,
+          },
+        };
+        completedCount.current++;
+        if (completedCount.current >= totalProviders.current) {
+          saveCacheResults(latestProviders.current, updated, latestProviders.current[0]?.id || "");
+        }
+        return updated;
+      });
     }
   };
 
@@ -197,6 +250,8 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
   const activeResult = results[activeProvider];
   const analysis = activeResult?.result;
 
+  if (loadingCache) return null;
+
   if (!started) {
     return (
       <Card style={styles.card}>
@@ -233,20 +288,11 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
         <ThemedText type="h4" style={styles.title}>AI Stock Analysis</ThemedText>
         <View style={styles.titleActions}>
           {activeResult && !activeResult.loading && (
-            <>
-              <View style={[styles.sourceBadge, { backgroundColor: (activeResult.result ? "#10B981" : "#F59E0B") + "20" }]}>
-                <ThemedText style={[styles.sourceBadgeText, { color: activeResult.result ? "#10B981" : "#F59E0B" }]}>
-                  {activeResult.result ? activeResult.providerName : "Failed"}
-                </ThemedText>
-              </View>
-              {activeResult.result && activeResult.ragUsed && (
-                <View style={[styles.sourceBadge, { backgroundColor: "#3B82F620", marginLeft: 6 }]}>
-                  <ThemedText style={[styles.sourceBadgeText, { color: "#3B82F6" }]}>
-                    Based on financial reports
-                  </ThemedText>
-                </View>
-              )}
-            </>
+            <View style={[styles.sourceBadge, { backgroundColor: (activeResult.result ? "#10B981" : "#F59E0B") + "20" }]}>
+              <ThemedText style={[styles.sourceBadgeText, { color: activeResult.result ? "#10B981" : "#F59E0B" }]}>
+                {activeResult.result ? activeResult.providerName : "Failed"}
+              </ThemedText>
+            </View>
           )}
           <TouchableOpacity onPress={handleRefresh} disabled={anyLoading} style={styles.refreshButton}>
             {anyLoading ? (
@@ -257,6 +303,23 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
           </TouchableOpacity>
         </View>
       </View>
+      {activeResult && !activeResult.loading && (activeResult.ragUsed || analysisDate) && (
+        <View style={styles.metaRow}>
+          {activeResult.ragUsed && (
+            <View style={[styles.sourceBadge, { backgroundColor: "#3B82F620" }]}>
+              <Feather name="file-text" size={11} color="#3B82F6" />
+              <ThemedText style={[styles.sourceBadgeText, { color: "#3B82F6", marginLeft: 4 }]}>
+                Financial Reports
+              </ThemedText>
+            </View>
+          )}
+          {analysisDate && (
+            <ThemedText style={[styles.metaDate, { color: theme.textSecondary }]}>
+              {analysisDate}
+            </ThemedText>
+          )}
+        </View>
+      )}
 
       {/* Consensus Bar */}
       {!allLoading && (
@@ -587,9 +650,11 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
 
 const styles = StyleSheet.create({
   card: { marginBottom: Spacing.lg },
-  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: Spacing.md },
+  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs },
   title: { marginBottom: 0 },
-  titleActions: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, flexWrap: "wrap", justifyContent: "flex-end", flex: 1, marginLeft: Spacing.sm },
+  titleActions: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.md },
+  metaDate: { fontSize: 11 },
   sourceBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 3, borderRadius: BorderRadius.xs },
   sourceBadgeText: { fontSize: 10, fontWeight: "700" },
   refreshButton: { padding: Spacing.xs },
