@@ -12,6 +12,7 @@ import { HoldingItem } from "@/components/HoldingItem";
 import { FAB } from "@/components/FAB";
 import { EmptyState } from "@/components/EmptyState";
 import { PortfolioDonut } from "@/components/PortfolioDonut";
+import { PortfolioSentimentGauge } from "@/components/PortfolioSentimentGauge";
 import { DonutChart, DonutChartLegend } from "@/components/DonutChart";
 import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
@@ -203,7 +204,12 @@ export default function PortfolioScreen() {
       .sort((a, b) => b.value - a.value);
   }, [holdings]);
 
-  const renderListHeader = () => (
+  const renderListHeader = () => {
+    const sortedSymbols = [...holdings]
+      .sort((a, b) => (b.shares * b.currentPrice) - (a.shares * a.currentPrice))
+      .map(h => h.symbol);
+      
+    return (
     <>
       <SummaryCard
         totalValue={summary.totalValue}
@@ -211,6 +217,7 @@ export default function PortfolioScreen() {
         totalPLPercent={summary.totalPLPercent}
         holdingsCount={summary.holdingsCount}
       />
+      <PortfolioSentimentGauge symbols={sortedSymbols} />
       <PortfolioDonut holdings={holdings} />
       <Card style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.md }}>
         <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>
@@ -228,7 +235,8 @@ export default function PortfolioScreen() {
         <DonutChartLegend data={sectorData} total={summary.totalValue} />
       </Card>
     </>
-  );
+    );
+  };
 
   const renderEmptyComponent = () => (
     <EmptyState
