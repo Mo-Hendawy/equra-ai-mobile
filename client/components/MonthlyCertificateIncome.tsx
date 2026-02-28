@@ -93,6 +93,11 @@ export function MonthlyCertificateIncome({ certificates }: MonthlyCertificateInc
     [monthPayouts]
   );
 
+  const totalPrincipal = useMemo(() => 
+    activeCertificates.reduce((sum, c) => sum + c.principalAmount, 0),
+    [activeCertificates]
+  );
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-EG", {
       minimumFractionDigits: 2,
@@ -129,6 +134,15 @@ export function MonthlyCertificateIncome({ certificates }: MonthlyCertificateInc
 
   return (
     <Card style={[styles.card, { backgroundColor: "#3B9ED8" }]}>
+      <View style={{ marginBottom: Spacing.md }}>
+        <ThemedText style={[styles.title, { marginBottom: 4, color: "rgba(255,255,255,0.8)" }]}>
+          Total Certificates Value
+        </ThemedText>
+        <ThemedText style={{ fontSize: 28, fontWeight: "700", color: "#FFFFFF", marginBottom: Spacing.lg }}>
+          EGP {formatCurrency(totalPrincipal)}
+        </ThemedText>
+      </View>
+
       <ThemedText style={styles.title}>
         Monthly Certificate Income
       </ThemedText>

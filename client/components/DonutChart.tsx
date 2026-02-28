@@ -109,9 +109,11 @@ export function DonutChart({
 export function DonutChartLegend({
   data,
   total,
+  targetMap,
 }: {
   data: DonutChartData[];
   total: number;
+  targetMap?: Record<string, number>;
 }) {
   const { theme } = useTheme();
 
@@ -119,6 +121,7 @@ export function DonutChartLegend({
     <View style={styles.legend}>
       {data.map((item, index) => {
         const percentage = total > 0 ? ((item.value / total) * 100).toFixed(2) : "0.00";
+        const target = targetMap?.[item.label];
         return (
           <View key={index} style={styles.legendItem}>
             <View style={styles.legendLeft}>
@@ -131,6 +134,11 @@ export function DonutChartLegend({
               <ThemedText style={[styles.legendPercent, { color: theme.textSecondary }]}>
                 {percentage}%
               </ThemedText>
+              {target != null && (
+                <ThemedText style={[styles.legendTarget, { color: theme.primary }]}>
+                  {" "}(T: {target}%)
+                </ThemedText>
+              )}
             </View>
             <View style={[styles.legendSquare, { backgroundColor: item.color }]} />
           </View>
@@ -179,6 +187,10 @@ const styles = StyleSheet.create({
   },
   legendPercent: {
     fontSize: 14,
+  },
+  legendTarget: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   legendSquare: {
     width: 14,

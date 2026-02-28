@@ -1,12 +1,14 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { View, StyleSheet } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { Card } from "@/components/Card";
 import { DonutChart, DonutChartLegend } from "@/components/DonutChart";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing } from "@/constants/theme";
-import type { PortfolioHolding } from "@/types";
+import { targetsStorage } from "@/lib/storage";
+import type { PortfolioHolding, Target } from "@/types";
 
 const CHART_COLORS = [
   "#2196F3",
@@ -32,6 +34,21 @@ interface PortfolioDonutProps {
 
 export function PortfolioDonut({ holdings }: PortfolioDonutProps) {
   const { theme } = useTheme();
+  const [targets, setTargets] = useState<Target[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      targetsStorage.getAll().then(setTargets).catch(() => {});
+    }, [])
+  );
+
+  const targetMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    targets.forEach((t) => {
+      if (t.symbol) map[t.symbol] = t.targetPercentage;
+    });
+    return map;
+  }, [targets]);
 
   const chartData = useMemo(() => {
     const data = holdings
@@ -76,7 +93,7 @@ export function PortfolioDonut({ holdings }: PortfolioDonutProps) {
         />
       </View>
 
-      <DonutChartLegend data={chartData} total={totalValue} />
+      <DonutChartLegend data={chartData} total={totalValue} targetMap={targetMap} />
     </Card>
   );
 }

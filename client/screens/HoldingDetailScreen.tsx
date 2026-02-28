@@ -22,6 +22,7 @@ import { Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { holdingsStorage, realizedGainsStorage, transactionsStorage } from "@/lib/storage";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { StockAnalysis } from "@/components/StockAnalysis";
+import { SentimentGauge } from "@/components/SentimentGauge";
 import { TransactionImportModal } from "@/components/TransactionImportModal";
 import { ManusDeepAnalysis } from "@/components/ManusDeepAnalysis";
 import { STOCK_ROLES, STOCK_STATUSES } from "@/constants/egxStocks";
@@ -549,6 +550,8 @@ export default function HoldingDetailScreen() {
         onUpdateTransaction={handleUpdateTransaction}
         onDeleteTransaction={handleDeleteTransaction}
       />
+
+      <SentimentGauge symbol={holding.symbol} />
 
       <StockAnalysis symbol={holding.symbol} />
 

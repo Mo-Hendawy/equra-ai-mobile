@@ -107,6 +107,7 @@ export interface StockTransaction {
 
 export interface Target {
   id: string;
+  symbol: string;
   name: string;
   targetPercentage: number;
   currentPercentage: number;
