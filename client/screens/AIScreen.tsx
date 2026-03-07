@@ -77,9 +77,19 @@ export default function AIScreen() {
 
   // Expanded cards
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [expandedReasoningSteps, setExpandedReasoningSteps] = useState<Set<string>>(new Set());
 
   const toggleCard = (key: string) => {
     setExpandedCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleReasoningSteps = (key: string) => {
+    setExpandedReasoningSteps((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -123,6 +133,7 @@ export default function AIScreen() {
     setLoading(true);
     setResults([]);
     setExpandedCards(new Set());
+    setExpandedReasoningSteps(new Set());
 
     try {
       // Get available providers
@@ -278,11 +289,37 @@ export default function AIScreen() {
   };
 
   // ─── Render portfolio result ───
-  const renderPortfolioResult = (pr: ProviderResult) => {
+  const renderPortfolioResult = (pr: ProviderResult, cardKey: string) => {
     const r = pr.result;
     if (!r) return pr.error ? <ThemedText style={{ color: theme.error, padding: Spacing.md }}>{pr.error}</ThemedText> : null;
+    const color = PROVIDER_COLORS[pr.provider] || theme.primary;
+    const showSteps = expandedReasoningSteps.has(cardKey);
     return (
       <View style={styles.resultBody}>
+        {r.reasoningSteps?.length > 0 && (
+          <View style={{ marginBottom: Spacing.md }}>
+            <TouchableOpacity
+              style={[styles.reasoningStepsHeader, { backgroundColor: color + "15" }]}
+              onPress={() => toggleReasoningSteps(cardKey)}
+            >
+              <Feather name="list" size={16} color={color} />
+              <ThemedText style={[styles.reasoningStepsTitle, { color }]}>How we got here</ThemedText>
+              <Feather name={showSteps ? "chevron-up" : "chevron-down"} size={18} color={color} />
+            </TouchableOpacity>
+            {showSteps && (
+              <View style={styles.reasoningStepsList}>
+                {r.reasoningSteps.map((step: string, i: number) => (
+                  <View key={i} style={[styles.reasoningStepItem, { backgroundColor: theme.backgroundSecondary }]}>
+                    <View style={[styles.reasoningStepNumber, { backgroundColor: color }]}>
+                      <ThemedText style={styles.reasoningStepNumberText}>{i + 1}</ThemedText>
+                    </View>
+                    <ThemedText style={[styles.reasoningStepText, { color: theme.text }]}>{step}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
         <View style={styles.row}>
           <ThemedText style={{ fontWeight: "600" }}>Health:</ThemedText>
           <View style={[styles.badge, { backgroundColor: getHealthColor(r.overallHealth) }]}>
@@ -331,11 +368,37 @@ export default function AIScreen() {
   };
 
   // ─── Render compare result ───
-  const renderCompareResult = (pr: ProviderResult) => {
+  const renderCompareResult = (pr: ProviderResult, cardKey: string) => {
     const r = pr.result;
     if (!r) return pr.error ? <ThemedText style={{ color: theme.error, padding: Spacing.md }}>{pr.error}</ThemedText> : null;
+    const color = PROVIDER_COLORS[pr.provider] || theme.primary;
+    const showSteps = expandedReasoningSteps.has(cardKey);
     return (
       <View style={styles.resultBody}>
+        {r.reasoningSteps?.length > 0 && (
+          <View style={{ marginBottom: Spacing.md }}>
+            <TouchableOpacity
+              style={[styles.reasoningStepsHeader, { backgroundColor: color + "15" }]}
+              onPress={() => toggleReasoningSteps(cardKey)}
+            >
+              <Feather name="list" size={16} color={color} />
+              <ThemedText style={[styles.reasoningStepsTitle, { color }]}>How we got here</ThemedText>
+              <Feather name={showSteps ? "chevron-up" : "chevron-down"} size={18} color={color} />
+            </TouchableOpacity>
+            {showSteps && (
+              <View style={styles.reasoningStepsList}>
+                {r.reasoningSteps.map((step: string, i: number) => (
+                  <View key={i} style={[styles.reasoningStepItem, { backgroundColor: theme.backgroundSecondary }]}>
+                    <View style={[styles.reasoningStepNumber, { backgroundColor: color }]}>
+                      <ThemedText style={styles.reasoningStepNumberText}>{i + 1}</ThemedText>
+                    </View>
+                    <ThemedText style={[styles.reasoningStepText, { color: theme.text }]}>{step}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
         <ThemedText style={{ fontWeight: "700", fontSize: 15, marginBottom: Spacing.sm }}>Verdict</ThemedText>
         <ThemedText style={{ lineHeight: 22 }}>{r.verdict}</ThemedText>
         {r.rankings?.map((rk: any, i: number) => (
@@ -371,11 +434,37 @@ export default function AIScreen() {
   };
 
   // ─── Render deploy result ───
-  const renderDeployResult = (pr: ProviderResult) => {
+  const renderDeployResult = (pr: ProviderResult, cardKey: string) => {
     const r = pr.result;
     if (!r) return pr.error ? <ThemedText style={{ color: theme.error, padding: Spacing.md }}>{pr.error}</ThemedText> : null;
+    const color = PROVIDER_COLORS[pr.provider] || theme.primary;
+    const showSteps = expandedReasoningSteps.has(cardKey);
     return (
       <View style={styles.resultBody}>
+        {r.reasoningSteps?.length > 0 && (
+          <View style={{ marginBottom: Spacing.md }}>
+            <TouchableOpacity
+              style={[styles.reasoningStepsHeader, { backgroundColor: color + "15" }]}
+              onPress={() => toggleReasoningSteps(cardKey)}
+            >
+              <Feather name="list" size={16} color={color} />
+              <ThemedText style={[styles.reasoningStepsTitle, { color }]}>How we got here</ThemedText>
+              <Feather name={showSteps ? "chevron-up" : "chevron-down"} size={18} color={color} />
+            </TouchableOpacity>
+            {showSteps && (
+              <View style={styles.reasoningStepsList}>
+                {r.reasoningSteps.map((step: string, i: number) => (
+                  <View key={i} style={[styles.reasoningStepItem, { backgroundColor: theme.backgroundSecondary }]}>
+                    <View style={[styles.reasoningStepNumber, { backgroundColor: color }]}>
+                      <ThemedText style={styles.reasoningStepNumberText}>{i + 1}</ThemedText>
+                    </View>
+                    <ThemedText style={[styles.reasoningStepText, { color: theme.text }]}>{step}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
         <ThemedText style={{ fontWeight: "700", fontSize: 15, marginBottom: Spacing.sm }}>Strategy</ThemedText>
         <ThemedText style={{ lineHeight: 22 }}>{r.strategy}</ThemedText>
         {r.allocations?.map((a: any, i: number) => (
@@ -427,7 +516,7 @@ export default function AIScreen() {
       return (
         <View key={cardKey} style={[styles.providerCard, { borderColor: theme.divider }]}>
           {renderProviderHeader(pr, cardKey)}
-          {isExpanded && !pr.loading && (pr.result || pr.error) && renderer(pr)}
+          {isExpanded && !pr.loading && (pr.result || pr.error) && renderer(pr, cardKey)}
         </View>
       );
     });
@@ -631,4 +720,11 @@ const styles = StyleSheet.create({
   buyZone: { padding: Spacing.sm, borderRadius: BorderRadius.sm, marginTop: Spacing.sm, alignSelf: "flex-start" },
   newBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: BorderRadius.sm, marginTop: Spacing.sm, alignSelf: "flex-start" },
   riskNote: { flexDirection: "row", alignItems: "flex-start", padding: Spacing.md, borderRadius: BorderRadius.md, marginTop: Spacing.lg },
+  reasoningStepsHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, padding: Spacing.md, borderRadius: BorderRadius.sm },
+  reasoningStepsTitle: { fontSize: 14, fontWeight: "600", flex: 1 },
+  reasoningStepsList: { marginTop: Spacing.sm, gap: Spacing.sm },
+  reasoningStepItem: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.sm, padding: Spacing.md, borderRadius: BorderRadius.sm },
+  reasoningStepNumber: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  reasoningStepNumberText: { color: "#FFF", fontSize: 12, fontWeight: "700" },
+  reasoningStepText: { flex: 1, fontSize: 13, lineHeight: 20 },
 });
