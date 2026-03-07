@@ -42,6 +42,7 @@ interface StockAnalysisResult {
   recommendation: string;
   confidence: "High" | "Medium" | "Low";
   reasoning: string;
+  reasoningSteps?: string[];
   riskLevel: "Low" | "Medium" | "High";
   keyPoints: string[];
   analysisMethod: string;
@@ -76,6 +77,7 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
   const [results, setResults] = useState<Record<string, ProviderResult>>({});
   const [activeProvider, setActiveProvider] = useState<string>("");
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
+  const [showReasoningSteps, setShowReasoningSteps] = useState(false);
   const [started, setStarted] = useState(false);
   const [analysisDate, setAnalysisDate] = useState<string | null>(null);
   const [loadingCache, setLoadingCache] = useState(true);
@@ -225,6 +227,7 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
 
   const handleRefresh = () => {
     setShowDetailedAnalysis(false);
+    setShowReasoningSteps(false);
     fetchAllProviders();
   };
 
@@ -626,6 +629,38 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
                 </View>
               )}
 
+              {/* How we got here (Chain-of-Thought steps) */}
+              {analysis.reasoningSteps && analysis.reasoningSteps.length > 0 && (
+                <View style={styles.section}>
+                  <TouchableOpacity
+                    style={[styles.reasoningStepsHeader, { backgroundColor: (PROVIDER_COLORS[activeProvider] || theme.primary) + "15" }]}
+                    onPress={() => setShowReasoningSteps(!showReasoningSteps)}
+                  >
+                    <Feather name="list" size={16} color={PROVIDER_COLORS[activeProvider] || theme.primary} />
+                    <ThemedText style={[styles.reasoningStepsTitle, { color: PROVIDER_COLORS[activeProvider] || theme.primary }]}>
+                      How we got here
+                    </ThemedText>
+                    <Feather
+                      name={showReasoningSteps ? "chevron-up" : "chevron-down"}
+                      size={18}
+                      color={PROVIDER_COLORS[activeProvider] || theme.primary}
+                    />
+                  </TouchableOpacity>
+                  {showReasoningSteps && (
+                    <View style={styles.reasoningStepsList}>
+                      {analysis.reasoningSteps.map((step: string, index: number) => (
+                        <View key={index} style={[styles.reasoningStepItem, { backgroundColor: theme.backgroundSecondary }]}>
+                          <View style={[styles.reasoningStepNumber, { backgroundColor: PROVIDER_COLORS[activeProvider] || theme.primary }]}>
+                            <ThemedText style={styles.reasoningStepNumberText}>{index + 1}</ThemedText>
+                          </View>
+                          <ThemedText style={[styles.reasoningStepText, { color: theme.text }]}>{step}</ThemedText>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+
               {/* AI Reasoning */}
               {analysis.reasoning && (
                 <View style={styles.section}>
@@ -771,6 +806,13 @@ const styles = StyleSheet.create({
   targetItem: { flex: 1, padding: Spacing.md, borderRadius: BorderRadius.sm, alignItems: "center" },
   targetLabel: { fontSize: 11, marginBottom: 4 },
   targetValue: { fontSize: 14, fontWeight: "600" },
+  reasoningStepsHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, padding: Spacing.md, borderRadius: BorderRadius.sm },
+  reasoningStepsTitle: { fontSize: 14, fontWeight: "600", flex: 1 },
+  reasoningStepsList: { marginTop: Spacing.sm, gap: Spacing.sm },
+  reasoningStepItem: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.sm, padding: Spacing.md, borderRadius: BorderRadius.sm },
+  reasoningStepNumber: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  reasoningStepNumberText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  reasoningStepText: { flex: 1, fontSize: 13, lineHeight: 20 },
   aiReasoningContainer: { padding: Spacing.md, borderRadius: BorderRadius.sm, marginBottom: Spacing.md },
   aiReasoning: { fontSize: 14, lineHeight: 22 },
   keyPointsContainer: { gap: Spacing.sm },
