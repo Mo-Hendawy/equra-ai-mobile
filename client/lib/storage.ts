@@ -507,6 +507,101 @@ export const transactionsStorage = {
   },
 };
 
+/**
+ * Migrates OBEY (wrong symbol) → OLFI (correct EGX symbol) for Obour Land for Food Industries.
+ * Safe to run multiple times. Preserves all data.
+ */
+export async function migrateOBEYtoOLFI(): Promise<number> {
+  let migrated = 0;
+  try {
+    const OLFI_NAME_EN = "Obour Land for Food Industries";
+    const OLFI_NAME_AR = "أراضي العبور للصناعات الغذائية";
+
+    const holdings = await holdingsStorage.getAll();
+    const toMigrate = holdings.filter((h) => h.symbol === "OBEY");
+    if (toMigrate.length > 0) {
+      for (const h of holdings) {
+        if (h.symbol === "OBEY") {
+          h.symbol = "OLFI";
+          h.nameEn = OLFI_NAME_EN;
+          h.nameAr = OLFI_NAME_AR;
+          migrated++;
+        }
+      }
+      await setItems(STORAGE_KEYS.HOLDINGS, holdings);
+    }
+
+    const watchlist = await watchlistStorage.getAll();
+    const watchMigrated = watchlist.filter((w) => w.symbol === "OBEY");
+    if (watchMigrated.length > 0) {
+      for (const w of watchlist) {
+        if (w.symbol === "OBEY") {
+          w.symbol = "OLFI";
+          w.nameEn = OLFI_NAME_EN;
+          w.nameAr = OLFI_NAME_AR;
+          migrated++;
+        }
+      }
+      await setItems(STORAGE_KEYS.WATCHLIST, watchlist);
+    }
+
+    const dividends = await dividendsStorage.getAll();
+    const divMigrated = dividends.filter((d) => d.symbol === "OBEY");
+    if (divMigrated.length > 0) {
+      for (const d of dividends) {
+        if (d.symbol === "OBEY") {
+          d.symbol = "OLFI";
+          migrated++;
+        }
+      }
+      await setItems(STORAGE_KEYS.DIVIDENDS, dividends);
+    }
+
+    const targets = await targetsStorage.getAll();
+    const tgtMigrated = targets.filter((t) => t.symbol === "OBEY");
+    if (tgtMigrated.length > 0) {
+      for (const t of targets) {
+        if (t.symbol === "OBEY") {
+          t.symbol = "OLFI";
+          migrated++;
+        }
+      }
+      await setItems(STORAGE_KEYS.TARGETS, targets);
+    }
+
+    const transactions = await transactionsStorage.getAll();
+    const txnMigrated = transactions.filter((t) => t.symbol === "OBEY");
+    if (txnMigrated.length > 0) {
+      for (const t of transactions) {
+        if (t.symbol === "OBEY") {
+          t.symbol = "OLFI";
+          migrated++;
+        }
+      }
+      await setItems(STORAGE_KEYS.TRANSACTIONS, transactions);
+    }
+
+    const realizedGains = await realizedGainsStorage.getAll();
+    const gainMigrated = realizedGains.filter((g) => g.symbol === "OBEY");
+    if (gainMigrated.length > 0) {
+      for (const g of realizedGains) {
+        if (g.symbol === "OBEY") {
+          g.symbol = "OLFI";
+          migrated++;
+        }
+      }
+      await setItems(STORAGE_KEYS.REALIZED_GAINS, realizedGains);
+    }
+
+    if (migrated > 0) {
+      console.log(`[migrateOBEYtoOLFI] Migrated ${migrated} OBEY→OLFI records`);
+    }
+  } catch (e) {
+    console.error("[migrateOBEYtoOLFI] Error:", e);
+  }
+  return migrated;
+}
+
 export const backupStorage = {
   export: async (): Promise<string> => {
     const data = {

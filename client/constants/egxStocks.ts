@@ -71,7 +71,7 @@ export const EGX_STOCKS: EGXStock[] = [
   { symbol: "DSCW", nameEn: "Dice Sport & Casual Wear", nameAr: "دايس للملابس الرياضية", sector: "Consumer Goods" },
   { symbol: "EFID", nameEn: "Edita Food Industries", nameAr: "إيديتا للصناعات الغذائية", sector: "Consumer Goods" },
   { symbol: "DOMT", nameEn: "Arabian Food Industries Company (DOMTY)", nameAr: "دومتي للصناعات الغذائية", sector: "Consumer Goods" },
-  { symbol: "OBEY", nameEn: "Obour Land for Food Industries", nameAr: "أراضي العبور للصناعات الغذائية", sector: "Consumer Goods" },
+  { symbol: "OLFI", nameEn: "Obour Land for Food Industries", nameAr: "أراضي العبور للصناعات الغذائية", sector: "Consumer Goods" },
   
   // Basic Materials
   { symbol: "ABUK", nameEn: "Abu Qir Fertilizers & Chemical", nameAr: "أبو قير للأسمدة والصناعات الكيماوية", sector: "Basic Materials" },

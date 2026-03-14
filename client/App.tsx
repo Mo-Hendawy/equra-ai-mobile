@@ -12,6 +12,7 @@ import { queryClient } from "@/lib/query-client";
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { resetPortfolio } from "@/lib/reset-portfolio";
+import { migrateOBEYtoOLFI } from "@/lib/storage";
 import { ThemedText } from "@/components/ThemedText";
 
 const APP_VERSION = "2.0.9"; // Increment this to trigger auto-reset
@@ -22,6 +23,7 @@ export default function App() {
   useEffect(() => {
     const checkAndResetIfNeeded = async () => {
       try {
+        await migrateOBEYtoOLFI();
         const lastVersion = await AsyncStorage.getItem("@app_version");
         
         if (lastVersion !== APP_VERSION) {
