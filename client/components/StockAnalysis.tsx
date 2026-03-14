@@ -10,6 +10,21 @@ import { Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 const CACHE_KEY = (symbol: string) => `stock_analysis_cache_${symbol}`;
+const MAX_HISTORY = 8;
+const HISTORY_MIN_DAYS = 5;
+const HISTORY_MAX_DAYS = 9;
+
+interface HistoryEntryByProvider {
+  recommendation: string;
+  confidence: string;
+  fairValueEstimate: number | null;
+  valuationStatus: string;
+}
+
+interface HistoryEntry {
+  timestamp: string;
+  byProvider: Record<string, HistoryEntryByProvider>;
+}
 
 interface ProviderInfo {
   id: string;
@@ -80,6 +95,7 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
   const [showReasoningSteps, setShowReasoningSteps] = useState(false);
   const [started, setStarted] = useState(false);
   const [analysisDate, setAnalysisDate] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loadingCache, setLoadingCache] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -91,23 +107,69 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
     try {
       const cached = await AsyncStorage.getItem(CACHE_KEY(symbol));
       if (cached) {
-        const { providers: cachedProviders, results: cachedResults, activeProvider: cachedActive, date } = JSON.parse(cached);
-        setProviders(cachedProviders);
-        setResults(cachedResults);
-        setActiveProvider(cachedActive);
-        setAnalysisDate(date);
+        const parsed = JSON.parse(cached);
+        const { providers: cachedProviders, results: cachedResults, activeProvider: cachedActive, date } = parsed;
+        setProviders(cachedProviders || []);
+        setResults(cachedResults || {});
+        setActiveProvider(cachedActive || "");
+        setAnalysisDate(date || null);
+        setHistory(parsed.history || []);
         setStarted(true);
       }
-    } catch {}
+    } catch (e) {
+      console.warn("[StockAnalysis] Cache load failed:", e);
+    }
     setLoadingCache(false);
+  };
+
+  const buildByProvider = (res: Record<string, ProviderResult>): Record<string, HistoryEntryByProvider> => {
+    const byProvider: Record<string, HistoryEntryByProvider> = {};
+    Object.entries(res).forEach(([pid, r]) => {
+      const result = r?.result;
+      if (result?.recommendation) {
+        byProvider[pid] = {
+          recommendation: result.recommendation,
+          confidence: result.confidence || "Medium",
+          fairValueEstimate: result.fairValueEstimate ?? null,
+          valuationStatus: result.valuationStatus || "Fair",
+        };
+      }
+    });
+    return byProvider;
   };
 
   const saveCacheResults = async (provs: ProviderInfo[], res: Record<string, ProviderResult>, active: string) => {
     try {
-      const date = new Date().toLocaleString();
-      setAnalysisDate(date);
-      await AsyncStorage.setItem(CACHE_KEY(symbol), JSON.stringify({ providers: provs, results: res, activeProvider: active, date }));
-    } catch {}
+      const now = new Date();
+      const dateIso = now.toISOString();
+      setAnalysisDate(now.toLocaleString());
+
+      const existing = await AsyncStorage.getItem(CACHE_KEY(symbol));
+      let newHistory: HistoryEntry[] = existing ? (JSON.parse(existing).history || []) : [];
+      if (existing) {
+        const parsed = JSON.parse(existing);
+        const priorDate = parsed.date;
+        if (priorDate && Object.keys(parsed.results || {}).length > 0) {
+          const priorTime = new Date(priorDate).getTime();
+          const hoursAgo = (now.getTime() - priorTime) / (1000 * 60 * 60);
+          if (hoursAgo >= 24 && !Number.isNaN(priorTime)) {
+            const byProvider = buildByProvider(parsed.results);
+            if (Object.keys(byProvider).length > 0) {
+              const priorIso = priorDate.includes("T") ? priorDate : new Date(priorTime).toISOString();
+              newHistory = [...newHistory, { timestamp: priorIso, byProvider }].slice(-MAX_HISTORY);
+              setHistory(newHistory);
+            }
+          }
+        }
+      }
+
+      await AsyncStorage.setItem(
+        CACHE_KEY(symbol),
+        JSON.stringify({ providers: provs, results: res, activeProvider: active, date: dateIso, history: newHistory })
+      );
+    } catch (e) {
+      console.warn("[StockAnalysis] Cache save failed:", e);
+    }
   };
 
   const handleStart = () => {
@@ -263,6 +325,68 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
   const activeResult = results[activeProvider];
   const analysis = activeResult?.result;
 
+  const findPriorEntry = (): { entry: HistoryEntry; prior: HistoryEntryByProvider } | null => {
+    if (!analysis || !activeProvider) return null;
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const minDays = HISTORY_MIN_DAYS;
+    const maxDays = HISTORY_MAX_DAYS;
+    let best: { entry: HistoryEntry; prior: HistoryEntryByProvider; dist: number } | null = null;
+    for (const entry of history) {
+      const t = new Date(entry.timestamp).getTime();
+      if (Number.isNaN(t)) continue;
+      const daysAgo = (now - t) / dayMs;
+      if (daysAgo >= minDays && daysAgo <= maxDays) {
+        const prior = entry.byProvider[activeProvider];
+        if (!prior) continue;
+        const dist = Math.abs(daysAgo - 7);
+        if (!best || dist < best.dist) best = { entry, prior, dist };
+      }
+    }
+    return best ? { entry: best.entry, prior: best.prior } : null;
+  };
+
+  const priorComparison = findPriorEntry();
+
+  const [aiNarrative, setAiNarrative] = useState<string | null>(null);
+  const [aiNarrativeLoading, setAiNarrativeLoading] = useState(false);
+  const [aiNarrativeError, setAiNarrativeError] = useState<string | null>(null);
+  const narrativeFetchedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!priorComparison) {
+      setAiNarrative(null);
+      setAiNarrativeError(null);
+      narrativeFetchedRef.current = null;
+      return;
+    }
+    if (!analysis || aiNarrativeLoading) return;
+    const key = `${priorComparison.entry.timestamp}-${activeProvider}`;
+    if (narrativeFetchedRef.current === key) return;
+    narrativeFetchedRef.current = key;
+    setAiNarrativeLoading(true);
+    setAiNarrativeError(null);
+    const priorForApi = {
+      recommendation: priorComparison.prior.recommendation,
+      confidence: priorComparison.prior.confidence,
+      fairValueEstimate: priorComparison.prior.fairValueEstimate,
+      valuationStatus: priorComparison.prior.valuationStatus,
+      keyPoints: [],
+    };
+    const currentForApi = {
+      recommendation: analysis.recommendation,
+      confidence: analysis.confidence,
+      fairValueEstimate: analysis.fairValueEstimate,
+      valuationStatus: analysis.valuationStatus,
+      keyPoints: analysis.keyPoints || [],
+    };
+    apiRequest("POST", "/api/ai/compare-analysis", { prior: priorForApi, current: currentForApi, symbol })
+      .then((res) => res.json())
+      .then((data) => setAiNarrative(data.narrative || ""))
+      .catch((e) => setAiNarrativeError(e.message || "Failed"))
+      .finally(() => setAiNarrativeLoading(false));
+  }, [priorComparison?.entry.timestamp, activeProvider, analysis?.recommendation, symbol]);
+
   if (loadingCache) return null;
 
   if (!started) {
@@ -334,6 +458,70 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
               {analysisDate}
             </ThemedText>
           )}
+        </View>
+      )}
+
+      {/* Compare to Last Week */}
+      {priorComparison && analysis && (
+        <View style={[styles.compareSection, { backgroundColor: theme.backgroundSecondary }]}>
+          <ThemedText type="subtitle" style={[styles.compareTitle, { color: theme.text }]}>
+            Compare to last week
+          </ThemedText>
+          <View style={styles.compareDiff}>
+            <View style={styles.compareRow}>
+              <ThemedText style={[styles.compareLabel, { color: theme.textSecondary }]}>Recommendation</ThemedText>
+              <ThemedText style={[styles.compareValue, { color: getRecommendationColor(priorComparison.prior.recommendation) }]}>
+                {priorComparison.prior.recommendation}
+              </ThemedText>
+              <Feather name="arrow-right" size={12} color={theme.textSecondary} />
+              <ThemedText style={[styles.compareValue, { color: getRecommendationColor(analysis.recommendation) }]}>
+                {analysis.recommendation}
+              </ThemedText>
+            </View>
+            <View style={styles.compareRow}>
+              <ThemedText style={[styles.compareLabel, { color: theme.textSecondary }]}>Fair value</ThemedText>
+              <ThemedText style={[styles.compareValue, { color: theme.text }]}>
+                {priorComparison.prior.fairValueEstimate != null ? `EGP ${formatCurrency(priorComparison.prior.fairValueEstimate)}` : "N/A"}
+              </ThemedText>
+              <Feather name="arrow-right" size={12} color={theme.textSecondary} />
+              <ThemedText style={[styles.compareValue, { color: theme.text }]}>
+                {analysis.fairValueEstimate != null ? `EGP ${formatCurrency(analysis.fairValueEstimate)}` : "N/A"}
+              </ThemedText>
+            </View>
+            <View style={styles.compareRow}>
+              <ThemedText style={[styles.compareLabel, { color: theme.textSecondary }]}>Confidence</ThemedText>
+              <ThemedText style={[styles.compareValue, { color: getConfidenceColor(priorComparison.prior.confidence) }]}>
+                {priorComparison.prior.confidence}
+              </ThemedText>
+              <Feather name="arrow-right" size={12} color={theme.textSecondary} />
+              <ThemedText style={[styles.compareValue, { color: getConfidenceColor(analysis.confidence) }]}>
+                {analysis.confidence}
+              </ThemedText>
+            </View>
+            <View style={styles.compareRow}>
+              <ThemedText style={[styles.compareLabel, { color: theme.textSecondary }]}>Valuation</ThemedText>
+              <ThemedText style={[styles.compareValue, { color: theme.text }]}>{priorComparison.prior.valuationStatus}</ThemedText>
+              <Feather name="arrow-right" size={12} color={theme.textSecondary} />
+              <ThemedText style={[styles.compareValue, { color: theme.text }]}>{analysis.valuationStatus}</ThemedText>
+            </View>
+          </View>
+          <View style={[styles.compareAiSection, { borderTopColor: theme.textSecondary + "30" }]}>
+            <ThemedText style={[styles.compareAiTitle, { color: theme.textSecondary }]}>
+              What changed (AI)
+            </ThemedText>
+            {aiNarrativeLoading && (
+              <View style={styles.compareAiLoading}>
+                <ActivityIndicator size="small" color={theme.primary} />
+                <ThemedText style={[styles.compareAiText, { color: theme.textSecondary }]}>Generating...</ThemedText>
+              </View>
+            )}
+            {aiNarrativeError && !aiNarrativeLoading && (
+              <ThemedText style={[styles.compareAiText, { color: "#EF4444" }]}>{aiNarrativeError}</ThemedText>
+            )}
+            {aiNarrative && !aiNarrativeLoading && (
+              <ThemedText style={[styles.compareAiText, { color: theme.text }]}>{aiNarrative}</ThemedText>
+            )}
+          </View>
         </View>
       )}
 
@@ -715,6 +903,16 @@ const styles = StyleSheet.create({
   title: { marginBottom: 0 },
   titleActions: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
   metaRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.md },
+  compareSection: { padding: Spacing.md, borderRadius: BorderRadius.md, marginBottom: Spacing.md },
+  compareTitle: { marginBottom: Spacing.sm },
+  compareDiff: { gap: Spacing.xs },
+  compareRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, flexWrap: "wrap" },
+  compareLabel: { width: 100, fontSize: 13 },
+  compareValue: { fontSize: 14, fontWeight: "600" },
+  compareAiSection: { marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1 },
+  compareAiTitle: { fontSize: 12, marginBottom: Spacing.xs },
+  compareAiLoading: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  compareAiText: { fontSize: 14, lineHeight: 20 },
   metaDate: { fontSize: 11 },
   sourceBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 3, borderRadius: BorderRadius.xs },
   sourceBadgeText: { fontSize: 10, fontWeight: "700" },
