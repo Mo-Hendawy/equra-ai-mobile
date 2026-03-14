@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
+import { StockSummaryCard } from "@/components/StockSummaryCard";
 import { StockAnalysis } from "@/components/StockAnalysis";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing } from "@/constants/theme";
@@ -26,6 +27,7 @@ export default function StockSearchScreen() {
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
   const [stockPrice, setStockPrice] = useState<StockPrice | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(false);
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
 
   const filteredStocks = EGX_STOCKS.filter((stock) => {
     const query = searchQuery.toLowerCase();
@@ -41,7 +43,7 @@ export default function StockSearchScreen() {
     setLoadingPrice(true);
     
     try {
-      const response = await apiRequest("GET", `/prices/${symbol}`);
+      const response = await apiRequest("GET", `/api/prices/${symbol}`);
       const priceData = await response.json();
       setStockPrice(priceData);
     } catch (error) {
@@ -55,6 +57,7 @@ export default function StockSearchScreen() {
   const handleClearSelection = () => {
     setSelectedStock(null);
     setStockPrice(null);
+    setShowFullAnalysis(false);
   };
 
   const formatCurrency = (value: number) => {
@@ -129,9 +132,24 @@ export default function StockSearchScreen() {
             </View>
           </Card>
 
-          <View style={{ paddingHorizontal: Spacing.md }}>
-            <StockAnalysis symbol={selectedStock} />
-          </View>
+          <StockSummaryCard symbol={selectedStock} />
+
+          <TouchableOpacity
+            style={[styles.expandableHeader, { backgroundColor: theme.backgroundSecondary }]}
+            onPress={() => setShowFullAnalysis((v) => !v)}
+          >
+            <ThemedText type="subtitle">Full Analysis</ThemedText>
+            <Feather
+              name={showFullAnalysis ? "chevron-up" : "chevron-down"}
+              size={20}
+              color={theme.textSecondary}
+            />
+          </TouchableOpacity>
+          {showFullAnalysis && (
+            <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.xl }}>
+              <StockAnalysis symbol={selectedStock} />
+            </View>
+          )}
         </ScrollView>
       ) : (
         <FlatList
@@ -262,5 +280,14 @@ const styles = StyleSheet.create({
   },
   priceContainer: {
     alignItems: "flex-end",
+  },
+  expandableHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.md,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderRadius: 8,
   },
 });
