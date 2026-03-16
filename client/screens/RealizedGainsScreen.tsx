@@ -23,8 +23,8 @@ import { FormInput } from "@/components/FormInput";
 import { EmptyState } from "@/components/EmptyState";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { realizedGainsStorage } from "@/lib/storage";
-import type { RealizedGain } from "@/types";
+import { realizedGainsStorage, dividendsStorage } from "@/lib/storage";
+import type { RealizedGain, Dividend } from "@/types";
 
 type FormData = {
   symbol: string;
@@ -49,6 +49,7 @@ export default function RealizedGainsScreen() {
   const { theme } = useTheme();
 
   const [gains, setGains] = useState<RealizedGain[]>([]);
+  const [dividends, setDividends] = useState<Dividend[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -59,13 +60,17 @@ export default function RealizedGainsScreen() {
 
   const loadGains = useCallback(async () => {
     try {
-      const data = await realizedGainsStorage.getAll();
+      const [gainsData, dividendsData] = await Promise.all([
+        realizedGainsStorage.getAll(),
+        dividendsStorage.getAll(),
+      ]);
       setGains(
-        data.sort(
+        gainsData.sort(
           (a, b) =>
             new Date(b.sellDate).getTime() - new Date(a.sellDate).getTime()
         )
       );
+      setDividends(dividendsData);
     } catch (error) {
       console.error("Failed to load gains:", error);
     } finally {
@@ -192,6 +197,10 @@ export default function RealizedGainsScreen() {
   };
 
   const totalProfit = gains.reduce((sum, g) => sum + g.profit, 0);
+  const totalDividendIncome = dividends
+    .filter((d) => d.status === "paid")
+    .reduce((sum, d) => sum + d.amount, 0);
+  const totalPortfolioIncome = totalProfit + totalDividendIncome;
   const profitableCount = gains.filter((g) => g.profit > 0).length;
   const lossCount = gains.filter((g) => g.profit < 0).length;
 
@@ -217,6 +226,31 @@ export default function RealizedGainsScreen() {
           >
             {totalProfit >= 0 ? "+" : ""}
             {formatCurrency(totalProfit)}
+          </ThemedText>
+        </View>
+        <View style={styles.summaryItem}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+            Dividend Income
+          </ThemedText>
+          <ThemedText type="h3" style={[Typography.mono, { color: theme.success }]}>
+            +{formatCurrency(totalDividendIncome)}
+          </ThemedText>
+        </View>
+      </View>
+      <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: theme.divider, paddingTop: Spacing.md }]}>
+        <View style={styles.summaryItem}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+            Total Portfolio Income
+          </ThemedText>
+          <ThemedText
+            type="h3"
+            style={[
+              Typography.mono,
+              { color: totalPortfolioIncome >= 0 ? theme.success : theme.error },
+            ]}
+          >
+            {totalPortfolioIncome >= 0 ? "+" : ""}
+            {formatCurrency(totalPortfolioIncome)}
           </ThemedText>
         </View>
       </View>
@@ -349,7 +383,7 @@ export default function RealizedGainsScreen() {
         data={gains}
         keyExtractor={(item) => item.id}
         renderItem={renderGain}
-        ListHeaderComponent={gains.length > 0 ? renderHeader : null}
+        ListHeaderComponent={gains.length > 0 || dividends.length > 0 ? renderHeader : null}
         ListEmptyComponent={
           loading ? null : (
             <EmptyState
@@ -509,8 +543,8 @@ const styles = StyleSheet.create({
   listContent: { paddingHorizontal: Spacing.lg },
   emptyListContent: { flexGrow: 1 },
   summaryCard: { marginBottom: Spacing.lg },
-  summaryRow: { marginBottom: Spacing.lg },
-  summaryItem: { alignItems: "center" },
+  summaryRow: { flexDirection: "row", marginBottom: Spacing.lg },
+  summaryItem: { flex: 1, alignItems: "center" },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",

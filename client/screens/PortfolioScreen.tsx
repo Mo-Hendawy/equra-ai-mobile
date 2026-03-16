@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { PortfolioDonut } from "@/components/PortfolioDonut";
 import { PortfolioSentimentGauge } from "@/components/PortfolioSentimentGauge";
 import { DonutChart, DonutChartLegend } from "@/components/DonutChart";
+import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -52,6 +53,14 @@ export default function PortfolioScreen() {
   const [holdings, setHoldings] = useState<PortfolioHolding[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    sentiment: false,
+    allocation: false,
+    sector: false,
+  });
+
+  const toggleSection = (key: string) =>
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
   // 🔍 DEBUG LOGGING
   console.log("📐 PORTFOLIO SCREEN LAYOUT:", {
@@ -217,23 +226,38 @@ export default function PortfolioScreen() {
         totalPLPercent={summary.totalPLPercent}
         holdingsCount={summary.holdingsCount}
       />
-      <PortfolioSentimentGauge symbols={sortedSymbols} />
-      <PortfolioDonut holdings={holdings} />
-      <Card style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.md }}>
-        <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>
-          Sector Allocation
-        </ThemedText>
-        <View style={{ alignItems: "center" }}>
-          <DonutChart
-            data={sectorData}
-            size={180}
-            strokeWidth={30}
-            centerValue={holdings.length.toString()}
-            centerLabel="Holdings"
-          />
-        </View>
-        <DonutChartLegend data={sectorData} total={summary.totalValue} />
-      </Card>
+      <CollapsibleSection
+        title="Portfolio Sentiment"
+        expanded={expanded.sentiment}
+        onToggle={() => toggleSection("sentiment")}
+      >
+        <PortfolioSentimentGauge symbols={sortedSymbols} />
+      </CollapsibleSection>
+      <CollapsibleSection
+        title="Holdings Allocation"
+        expanded={expanded.allocation}
+        onToggle={() => toggleSection("allocation")}
+      >
+        <PortfolioDonut holdings={holdings} />
+      </CollapsibleSection>
+      <CollapsibleSection
+        title="Sector Allocation"
+        expanded={expanded.sector}
+        onToggle={() => toggleSection("sector")}
+      >
+        <Card style={{ marginBottom: Spacing.md }}>
+          <View style={{ alignItems: "center" }}>
+            <DonutChart
+              data={sectorData}
+              size={180}
+              strokeWidth={30}
+              centerValue={holdings.length.toString()}
+              centerLabel="Holdings"
+            />
+          </View>
+          <DonutChartLegend data={sectorData} total={summary.totalValue} />
+        </Card>
+      </CollapsibleSection>
     </>
     );
   };

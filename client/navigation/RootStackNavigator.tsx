@@ -10,7 +10,7 @@ import AddWatchlistScreen from "@/screens/AddWatchlistScreen";
 import BuyStockScreen from "@/screens/BuyStockScreen";
 import SellStockScreen from "@/screens/SellStockScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
-import type { PortfolioHolding, Certificate } from "@/types";
+import type { PortfolioHolding, Certificate, Dividend } from "@/types";
 
 export type RootStackParamList = {
   Main: undefined;
@@ -18,7 +18,7 @@ export type RootStackParamList = {
   HoldingDetail: { holdingId: string };
   AddCertificate: { certificate?: Certificate } | undefined;
   AddExpense: undefined;
-  AddDividend: undefined;
+  AddDividend: { dividend?: Dividend } | undefined;
   AddWatchlist: undefined;
   BuyStock: { holdingId: string };
   SellStock: { holdingId: string };

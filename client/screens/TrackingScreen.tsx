@@ -205,7 +205,10 @@ export default function TrackingScreen() {
             )}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <DividendItem dividend={item} onPress={() => {}} />
+              <DividendItem
+                dividend={item}
+                onPress={() => navigation.navigate("AddDividend", { dividend: item })}
+              />
             )}
             refreshControl={
               <RefreshControl

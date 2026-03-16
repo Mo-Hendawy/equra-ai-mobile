@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   ScrollView,
@@ -19,12 +19,19 @@ import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { holdingsStorage } from "@/lib/storage";
+import {
+  holdingsStorage,
+  transactionsStorage,
+  dividendsStorage,
+  realizedGainsStorage,
+  watchlistStorage,
+  targetsStorage,
+} from "@/lib/storage";
 import { apiRequest } from "@/lib/query-client";
 import { EGX_STOCKS } from "@/constants/egxStocks";
-import type { PortfolioHolding } from "@/types";
+import type { PortfolioHolding, StockTransaction, Dividend, RealizedGain, WatchlistItem, Target } from "@/types";
 
-type AITab = "portfolio" | "compare" | "deploy";
+type AITab = "portfolio" | "compare" | "deploy" | "behavior";
 
 interface ProviderResult {
   provider: string;
@@ -65,6 +72,16 @@ export default function AIScreen() {
   const [portfolioResults, setPortfolioResults] = useState<ProviderResult[]>([]);
   const [compareResults, setCompareResults] = useState<ProviderResult[]>([]);
   const [deployResults, setDeployResults] = useState<ProviderResult[]>([]);
+  const [behaviorResults, setBehaviorResults] = useState<ProviderResult[]>([]);
+
+  // Behavior data (loaded when Behavior tab is active)
+  const [behaviorData, setBehaviorData] = useState<{
+    transactions: StockTransaction[];
+    dividends: Dividend[];
+    realizedGains: RealizedGain[];
+    watchlist: WatchlistItem[];
+    targets: Target[];
+  }>({ transactions: [], dividends: [], realizedGains: [], watchlist: [], targets: [] });
 
   // Compare state
   const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
@@ -107,6 +124,156 @@ export default function AIScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { loadHoldings(); }, [loadHoldings]));
+
+  const loadBehaviorData = useCallback(async () => {
+    try {
+      const [transactions, dividends, realizedGains, watchlist, targets] = await Promise.all([
+        transactionsStorage.getAll().catch(() => []),
+        dividendsStorage.getAll().catch(() => []),
+        realizedGainsStorage.getAll().catch(() => []),
+        watchlistStorage.getAll().catch(() => []),
+        targetsStorage.getAll().catch(() => []),
+      ]);
+      const txSorted = transactions.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      setBehaviorData({
+        transactions: txSorted.slice(0, 100),
+        dividends,
+        realizedGains,
+        watchlist,
+        targets,
+      });
+    } catch (error) {
+      console.error("Failed to load behavior data:", error);
+      setBehaviorData({ transactions: [], dividends: [], realizedGains: [], watchlist: [], targets: [] });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "behavior") {
+      loadBehaviorData();
+    }
+  }, [activeTab, loadBehaviorData]);
+
+  const getBehaviorPayload = useCallback(() => {
+    const holdingsPayload = holdings.map((h) => ({
+      symbol: h.symbol,
+      nameEn: h.nameEn,
+      shares: h.shares,
+      averageCost: h.averageCost,
+      currentPrice: h.currentPrice,
+      weight:
+        holdings.reduce((s, x) => s + x.shares * x.currentPrice, 0) > 0
+          ? (h.shares * h.currentPrice) / holdings.reduce((s, x) => s + x.shares * x.currentPrice, 0)
+          : 0,
+      sector: h.sector,
+      role: h.role,
+    }));
+    return {
+      holdings: holdingsPayload,
+      totalValue: holdings.reduce((s, h) => s + h.shares * h.currentPrice, 0),
+      totalCost: holdings.reduce((s, h) => s + h.shares * h.averageCost, 0),
+      transactions: behaviorData.transactions.map((t) => ({
+        symbol: t.symbol,
+        type: t.type,
+        shares: t.shares,
+        pricePerShare: t.pricePerShare,
+        fees: t.fees,
+        date: t.date,
+      })),
+      dividends: behaviorData.dividends.map((d) => ({
+        symbol: d.symbol,
+        amount: d.amount,
+        exDate: d.exDate,
+        paymentDate: d.paymentDate,
+        status: d.status,
+      })),
+      realizedGains: behaviorData.realizedGains.map((g) => ({
+        symbol: g.symbol,
+        shares: g.shares,
+        buyPrice: g.buyPrice,
+        sellPrice: g.sellPrice,
+        buyDate: g.buyDate,
+        sellDate: g.sellDate,
+        profit: g.profit,
+      })),
+      watchlist: behaviorData.watchlist.map((w) => ({
+        symbol: w.symbol,
+        nameEn: w.nameEn,
+        sector: w.sector,
+      })),
+      targets: behaviorData.targets,
+    };
+  }, [holdings, behaviorData]);
+
+  const runBehaviorAnalysis = useCallback(async () => {
+    const payload = getBehaviorPayload();
+    const hasHoldings = payload.holdings.length > 0;
+    const hasTransactions = payload.transactions.length > 0;
+    const hasDividends = payload.dividends.length > 0;
+    const hasRealizedGains = payload.realizedGains.length > 0;
+    if (!hasHoldings && !hasTransactions && !hasDividends && !hasRealizedGains) {
+      Alert.alert(
+        "No Data",
+        "Add holdings, trades, dividends, or realized gains to get behavior insights."
+      );
+      return;
+    }
+    setLoading(true);
+    setBehaviorResults([]);
+    setExpandedCards(new Set());
+    setExpandedReasoningSteps(new Set());
+    try {
+      const provRes = await apiRequest("GET", "/api/ai/providers");
+      const { providers } = await provRes.json();
+      if (!providers || providers.length === 0) {
+        Alert.alert("No Providers", "No AI providers are configured on the backend.");
+        setLoading(false);
+        return;
+      }
+      const initial: ProviderResult[] = providers.map((p: any) => ({
+        provider: p.id,
+        providerName: p.name,
+        model: p.model,
+        result: null,
+        error: undefined,
+        durationMs: 0,
+        loading: true,
+      }));
+      setBehaviorResults(initial);
+      if (providers.length > 0) {
+        setExpandedCards(new Set([providers[0].id]));
+      }
+      const promises = providers.map(async (p: any) => {
+        try {
+          const response = await apiRequest("POST", `/api/ai/${p.id}/behavior-analysis`, payload);
+          const data = await response.json();
+          return { ...data, loading: false };
+        } catch (error: any) {
+          return {
+            provider: p.id,
+            providerName: p.name,
+            model: p.model,
+            result: null,
+            error: error.message || "Failed",
+            durationMs: 0,
+            loading: false,
+          };
+        }
+      });
+      for (const promise of promises) {
+        const result = await promise;
+        setBehaviorResults((prev) =>
+          prev.map((r) => (r.provider === result.provider ? result : r))
+        );
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to fetch providers");
+    } finally {
+      setLoading(false);
+    }
+  }, [getBehaviorPayload]);
 
   const getPortfolioPayload = () => ({
     holdings: holdings.map((h) => ({
@@ -505,10 +672,80 @@ export default function AIScreen() {
     );
   };
 
+  // ─── Render behavior result ───
+  const renderBehaviorResult = (pr: ProviderResult, cardKey: string) => {
+    const r = pr.result;
+    if (!r) return pr.error ? <ThemedText style={{ color: theme.error, padding: Spacing.md }}>{pr.error}</ThemedText> : null;
+    const color = PROVIDER_COLORS[pr.provider] || theme.primary;
+    const showSteps = expandedReasoningSteps.has(cardKey);
+    return (
+      <View style={styles.resultBody}>
+        {r.reasoningSteps?.length > 0 && (
+          <View style={{ marginBottom: Spacing.md }}>
+            <TouchableOpacity
+              style={[styles.reasoningStepsHeader, { backgroundColor: color + "15" }]}
+              onPress={() => toggleReasoningSteps(cardKey)}
+            >
+              <Feather name="list" size={16} color={color} />
+              <ThemedText style={[styles.reasoningStepsTitle, { color }]}>How we got here</ThemedText>
+              <Feather name={showSteps ? "chevron-up" : "chevron-down"} size={18} color={color} />
+            </TouchableOpacity>
+            {showSteps && (
+              <View style={styles.reasoningStepsList}>
+                {r.reasoningSteps.map((step: string, i: number) => (
+                  <View key={i} style={[styles.reasoningStepItem, { backgroundColor: theme.backgroundSecondary }]}>
+                    <View style={[styles.reasoningStepNumber, { backgroundColor: color }]}>
+                      <ThemedText style={styles.reasoningStepNumberText}>{i + 1}</ThemedText>
+                    </View>
+                    <ThemedText style={[styles.reasoningStepText, { color: theme.text }]}>{step}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+        {r.oneThingToChange && (
+          <View style={[styles.buyZone, { backgroundColor: theme.primary + "20", marginBottom: Spacing.md }]}>
+            <ThemedText style={{ fontWeight: "700", marginBottom: Spacing.xs, color: theme.primary }}>One thing to change</ThemedText>
+            <ThemedText style={{ lineHeight: 20 }}>{r.oneThingToChange}</ThemedText>
+          </View>
+        )}
+        <ThemedText style={{ color: theme.textSecondary, lineHeight: 20, marginBottom: Spacing.md }}>{r.feedback}</ThemedText>
+        {r.patterns?.length > 0 && (
+          <View style={{ marginBottom: Spacing.md }}>
+            <ThemedText style={{ fontWeight: "600", marginBottom: Spacing.xs }}>Patterns</ThemedText>
+            {r.patterns.map((s: string, i: number) => (
+              <View key={i} style={styles.bulletRow}>
+                <ThemedText style={{ color: theme.primary }}>●</ThemedText>
+                <ThemedText style={styles.bulletText}>{s}</ThemedText>
+              </View>
+            ))}
+          </View>
+        )}
+        {r.improvementAreas?.length > 0 && (
+          <View>
+            <ThemedText style={{ fontWeight: "600", marginBottom: Spacing.xs }}>Improvement areas</ThemedText>
+            {r.improvementAreas.map((s: string, i: number) => (
+              <View key={i} style={styles.bulletRow}>
+                <ThemedText style={{ color: theme.warning }}>▸</ThemedText>
+                <ThemedText style={styles.bulletText}>{s}</ThemedText>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   // ─── Render provider results list ───
-  const renderResults = (results: ProviderResult[], type: "portfolio" | "compare" | "deploy") => {
+  const renderResults = (results: ProviderResult[], type: "portfolio" | "compare" | "deploy" | "behavior") => {
     if (results.length === 0) return null;
-    const renderers = { portfolio: renderPortfolioResult, compare: renderCompareResult, deploy: renderDeployResult };
+    const renderers = {
+      portfolio: renderPortfolioResult,
+      compare: renderCompareResult,
+      deploy: renderDeployResult,
+      behavior: renderBehaviorResult,
+    };
     const renderer = renderers[type];
     return results.map((pr) => {
       const cardKey = `${type}-${pr.provider}`;
@@ -529,6 +766,7 @@ export default function AIScreen() {
         { id: "portfolio" as AITab, label: "Portfolio", icon: "activity" },
         { id: "compare" as AITab, label: "Compare", icon: "git-pull-request" },
         { id: "deploy" as AITab, label: "Deploy", icon: "dollar-sign" },
+        { id: "behavior" as AITab, label: "Behavior", icon: "trending-up" },
       ] as const).map((tab) => (
         <TouchableOpacity
           key={tab.id}
@@ -669,6 +907,32 @@ export default function AIScreen() {
     </View>
   );
 
+  // ─── Behavior Tab ───
+  const renderBehavior = () => (
+    <View>
+      {behaviorResults.length === 0 && (
+        <Card style={styles.card}>
+          <Feather name="trending-up" size={48} color={theme.primary} style={{ alignSelf: "center", marginBottom: Spacing.lg }} />
+          <ThemedText type="h4" style={{ textAlign: "center", marginBottom: Spacing.sm }}>Your Investing Behavior</ThemedText>
+          <ThemedText style={{ color: theme.textSecondary, textAlign: "center", marginBottom: Spacing.xl }}>
+            Get insights on your patterns, improvement areas, and one thing to change. Uses your holdings, transactions, dividends, and realized gains.
+          </ThemedText>
+          <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={runBehaviorAnalysis} disabled={loading}>
+            <Feather name="zap" size={18} color="#FFF" />
+            <ThemedText style={styles.buttonText}>Analyze with All AI Models</ThemedText>
+          </TouchableOpacity>
+        </Card>
+      )}
+      {renderResults(behaviorResults, "behavior")}
+      {behaviorResults.length > 0 && !loading && (
+        <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: Spacing.md }]} onPress={runBehaviorAnalysis}>
+          <Feather name="refresh-cw" size={18} color="#FFF" />
+          <ThemedText style={styles.buttonText}>Re-analyze</ThemedText>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <ScrollView
@@ -680,6 +944,7 @@ export default function AIScreen() {
         {activeTab === "portfolio" && renderPortfolio()}
         {activeTab === "compare" && renderCompare()}
         {activeTab === "deploy" && renderDeploy()}
+        {activeTab === "behavior" && renderBehavior()}
       </ScrollView>
     </View>
   );

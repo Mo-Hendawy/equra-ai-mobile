@@ -23,6 +23,7 @@ import { holdingsStorage, realizedGainsStorage, transactionsStorage } from "@/li
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { StockAnalysis } from "@/components/StockAnalysis";
 import { SentimentGauge } from "@/components/SentimentGauge";
+import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { TransactionImportModal } from "@/components/TransactionImportModal";
 import { ManusDeepAnalysis } from "@/components/ManusDeepAnalysis";
 import { STOCK_ROLES, STOCK_STATUSES } from "@/constants/egxStocks";
@@ -49,6 +50,17 @@ export default function HoldingDetailScreen() {
 
   const [holding, setHolding] = useState<PortfolioHolding | null>(null);
   const [transactions, setTransactions] = useState<StockTransaction[]>([]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    import: false,
+    notes: false,
+    transactions: true,
+    sentiment: false,
+    stockAnalysis: false,
+    manusAnalysis: false,
+    quickUpdate: false,
+    fairValue: false,
+    financialMetrics: false,
+  });
   const [currentPrice, setCurrentPrice] = useState("");
   const [fairValueBase, setFairValueBase] = useState("");
   const [fairValueMid, setFairValueMid] = useState("");
@@ -58,6 +70,9 @@ export default function HoldingDetailScreen() {
   const [bookValue, setBookValue] = useState("");
   const [notes, setNotes] = useState("");
   const [importModalVisible, setImportModalVisible] = useState(false);
+
+  const toggleSection = (key: string) =>
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const loadHolding = useCallback(async () => {
     try {
@@ -517,71 +532,108 @@ export default function HoldingDetailScreen() {
         </View>
       </Card>
 
-      <Card style={{ marginBottom: Spacing.md }}>
-        <Button
-          onPress={() => setImportModalVisible(true)}
-        >
-          📸 Import from Screenshot
-        </Button>
-      </Card>
-
-      <Card style={{ marginBottom: Spacing.md }}>
-        <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>
-          📝 Notes
-        </ThemedText>
-        <FormInput
-          label="Stock Notes"
-          placeholder="Add notes about this stock..."
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-          numberOfLines={4}
-          style={{ height: 100, textAlignVertical: "top" }}
-        />
-        <Button onPress={handleUpdateNotes}>
-          Save Notes
-        </Button>
-      </Card>
-
-      <TransactionHistory
-        transactions={transactions}
-        initialShares={holding.shares}
-        initialAvgCost={holding.averageCost}
-        onUpdateTransaction={handleUpdateTransaction}
-        onDeleteTransaction={handleDeleteTransaction}
-      />
-
-      <SentimentGauge symbol={holding.symbol} />
-
-      <StockAnalysis symbol={holding.symbol} />
-
-      <ManusDeepAnalysis symbol={holding.symbol} />
-
-      <Card style={styles.section}>
-        <ThemedText type="h4" style={styles.sectionTitle}>
-          Quick Update
-        </ThemedText>
-        <View style={styles.updateRow}>
-          <View style={styles.updateInput}>
-            <FormInput
-              label="Current Price (EGP)"
-              value={currentPrice}
-              onChangeText={setCurrentPrice}
-              keyboardType="decimal-pad"
-              containerStyle={{ marginBottom: 0 }}
-            />
-          </View>
-          <Button onPress={handleUpdatePrice} style={styles.updateButton}>
-            Update
+      <CollapsibleSection
+        title="📸 Import from Screenshot"
+        expanded={expanded.import}
+        onToggle={() => toggleSection("import")}
+      >
+        <Card style={{ marginBottom: Spacing.md }}>
+          <Button onPress={() => setImportModalVisible(true)}>
+            📸 Import from Screenshot
           </Button>
-        </View>
-      </Card>
+        </Card>
+      </CollapsibleSection>
 
-      <Card style={styles.section}>
-        <ThemedText type="h4" style={styles.sectionTitle}>
-          Fair Value Analysis
-        </ThemedText>
-        <View style={styles.fairValueGrid}>
+      <CollapsibleSection
+        title="📝 Notes"
+        expanded={expanded.notes}
+        onToggle={() => toggleSection("notes")}
+      >
+        <Card style={{ marginBottom: Spacing.md }}>
+          <FormInput
+            label="Stock Notes"
+            placeholder="Add notes about this stock..."
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            numberOfLines={4}
+            style={{ height: 100, textAlignVertical: "top" }}
+          />
+          <Button onPress={handleUpdateNotes}>Save Notes</Button>
+        </Card>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Transaction History"
+        expanded={expanded.transactions}
+        onToggle={() => toggleSection("transactions")}
+      >
+        <TransactionHistory
+          transactions={transactions}
+          initialShares={holding.shares}
+          initialAvgCost={holding.averageCost}
+          onUpdateTransaction={handleUpdateTransaction}
+          onDeleteTransaction={handleDeleteTransaction}
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Sentiment"
+        expanded={expanded.sentiment}
+        onToggle={() => toggleSection("sentiment")}
+      >
+        <SentimentGauge symbol={holding.symbol} />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Stock Analysis"
+        expanded={expanded.stockAnalysis}
+        onToggle={() => toggleSection("stockAnalysis")}
+      >
+        <StockAnalysis symbol={holding.symbol} />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Deep Analysis"
+        expanded={expanded.manusAnalysis}
+        onToggle={() => toggleSection("manusAnalysis")}
+      >
+        <ManusDeepAnalysis symbol={holding.symbol} />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Quick Update"
+        expanded={expanded.quickUpdate}
+        onToggle={() => toggleSection("quickUpdate")}
+      >
+        <Card style={styles.section}>
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            Current Price (EGP)
+          </ThemedText>
+          <View style={styles.updateRow}>
+            <View style={styles.updateInput}>
+              <FormInput
+                label=""
+                value={currentPrice}
+                onChangeText={setCurrentPrice}
+                keyboardType="decimal-pad"
+                containerStyle={{ marginBottom: 0 }}
+              />
+            </View>
+            <Button onPress={handleUpdatePrice} style={styles.updateButton}>
+              Update
+            </Button>
+          </View>
+        </Card>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Fair Value Analysis"
+        expanded={expanded.fairValue}
+        onToggle={() => toggleSection("fairValue")}
+      >
+        <Card style={styles.section}>
+          <View style={styles.fairValueGrid}>
           <View style={[styles.fairValueCard, { backgroundColor: theme.backgroundSecondary }]}>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
               Base (Conservative)
@@ -622,12 +674,15 @@ export default function HoldingDetailScreen() {
             />
           </View>
         </View>
-      </Card>
+        </Card>
+      </CollapsibleSection>
 
-      <Card style={styles.section}>
-        <ThemedText type="h4" style={styles.sectionTitle}>
-          Financial Metrics
-        </ThemedText>
+      <CollapsibleSection
+        title="Financial Metrics"
+        expanded={expanded.financialMetrics}
+        onToggle={() => toggleSection("financialMetrics")}
+      >
+        <Card style={styles.section}>
         <FormInput
           label="EPS (Earnings Per Share)"
           value={eps}
@@ -674,7 +729,8 @@ export default function HoldingDetailScreen() {
         <Button onPress={handleUpdateAnalysis} style={styles.saveButton}>
           Save Analysis
         </Button>
-      </Card>
+        </Card>
+      </CollapsibleSection>
 
       <Button
         onPress={handleDelete}
