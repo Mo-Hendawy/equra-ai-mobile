@@ -1,7 +1,14 @@
 import React, { useState, useCallback, useMemo } from "react";
-import { View, FlatList, StyleSheet, RefreshControl, Alert, Platform } from "react-native";
+import {
+  View,
+  FlatList,
+  StyleSheet,
+  RefreshControl,
+  Platform,
+  Pressable,
+  ScrollView,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -14,11 +21,10 @@ import { EmptyState } from "@/components/EmptyState";
 import { PortfolioDonut } from "@/components/PortfolioDonut";
 import { PortfolioSentimentGauge } from "@/components/PortfolioSentimentGauge";
 import { DonutChart, DonutChartLegend } from "@/components/DonutChart";
-import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { holdingsStorage } from "@/lib/storage";
 import { apiRequest } from "@/lib/query-client";
 import { STOCK_STATUSES } from "@/constants/egxStocks";
@@ -26,26 +32,22 @@ import type { PortfolioHolding } from "@/types";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type InsightTab = "sentiment" | "allocation" | "sector";
 
 const SECTOR_COLORS = [
-  "#1B5E20",
-  "#1565C0",
-  "#7B1FA2",
-  "#F57C00",
-  "#C62828",
-  "#00838F",
-  "#558B2F",
-  "#AD1457",
-  "#4527A0",
-  "#FF6F00",
-  "#00695C",
-  "#6D4C41",
-  "#37474F",
+  "#1B5E20", "#1565C0", "#7B1FA2", "#F57C00", "#C62828",
+  "#00838F", "#558B2F", "#AD1457", "#4527A0", "#FF6F00",
+  "#00695C", "#6D4C41", "#37474F",
+];
+
+const INSIGHT_TABS: { id: InsightTab; label: string }[] = [
+  { id: "sentiment", label: "Sentiment" },
+  { id: "allocation", label: "Allocation" },
+  { id: "sector", label: "Sector" },
 ];
 
 export default function PortfolioScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
@@ -53,24 +55,7 @@ export default function PortfolioScreen() {
   const [holdings, setHoldings] = useState<PortfolioHolding[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    sentiment: false,
-    allocation: false,
-    sector: false,
-  });
-
-  const toggleSection = (key: string) =>
-    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
-
-  // 🔍 DEBUG LOGGING
-  console.log("📐 PORTFOLIO SCREEN LAYOUT:", {
-    headerHeight,
-    tabBarHeight,
-    insetsTop: insets.top,
-    insetsBottom: insets.bottom,
-    spacingXl: Spacing.xl,
-    calculatedpaddingTop: Spacing.xl,
-  });
+  const [activeTab, setActiveTab] = useState<InsightTab>("allocation");
 
   const loadHoldings = useCallback(async () => {
     try {
@@ -86,117 +71,91 @@ export default function PortfolioScreen() {
     }
   }, []);
 
-  const fetchPricesForHoldings = useCallback(async (holdingsToUpdate: PortfolioHolding[]) => {
-    if (holdingsToUpdate.length === 0) return;
-    
-    try {
-      const symbols = holdingsToUpdate.map(h => h.symbol);
-      console.log("Fetching prices for symbols:", symbols);
-      const response = await apiRequest("POST", "/api/prices/batch", { symbols });
-      const data = await response.json();
-      console.log("Price fetch response:", data);
-      
-      let updatedCount = 0;
-      const updatedHoldings = [...holdingsToUpdate];
-      
-      for (const priceData of data.prices || []) {
-        if (priceData.price !== null) {
-          const holdingIndex = updatedHoldings.findIndex(h => h.symbol === priceData.symbol);
-          if (holdingIndex >= 0) {
-            // Always update if price is different (including from 0)
-            const currentPrice = updatedHoldings[holdingIndex].currentPrice || 0;
-            if (Math.abs(currentPrice - priceData.price) > 0.01) {
-              await holdingsStorage.update(updatedHoldings[holdingIndex].id, { currentPrice: priceData.price });
-              updatedHoldings[holdingIndex] = {
-                ...updatedHoldings[holdingIndex],
-                currentPrice: priceData.price,
-              };
-              updatedCount++;
+  const fetchPricesForHoldings = useCallback(
+    async (holdingsToUpdate: PortfolioHolding[]) => {
+      if (holdingsToUpdate.length === 0) return;
+      try {
+        const symbols = holdingsToUpdate.map((h) => h.symbol);
+        const response = await apiRequest("POST", "/api/prices/batch", { symbols });
+        const data = await response.json();
+
+        let updatedCount = 0;
+        const updatedHoldings = [...holdingsToUpdate];
+
+        for (const priceData of data.prices || []) {
+          if (priceData.price !== null) {
+            const idx = updatedHoldings.findIndex(
+              (h) => h.symbol === priceData.symbol
+            );
+            if (idx >= 0) {
+              const current = updatedHoldings[idx].currentPrice || 0;
+              if (Math.abs(current - priceData.price) > 0.01) {
+                await holdingsStorage.update(updatedHoldings[idx].id, {
+                  currentPrice: priceData.price,
+                });
+                updatedHoldings[idx] = {
+                  ...updatedHoldings[idx],
+                  currentPrice: priceData.price,
+                };
+                updatedCount++;
+              }
             }
           }
         }
-      }
-      
-      // Always update state to ensure UI reflects storage
-      setHoldings(updatedHoldings);
-      
-      if (updatedCount > 0) {
-        if (Platform.OS !== "web") {
+
+        setHoldings(updatedHoldings);
+
+        if (updatedCount > 0 && Platform.OS !== "web") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
-        console.log(`Updated ${updatedCount} prices`);
-      } else {
-        console.log("No prices updated. Current prices:", updatedHoldings.map(h => `${h.symbol}: ${h.currentPrice}`));
+      } catch (error) {
+        console.error("Price fetch failed:", error);
       }
-    } catch (error) {
-      console.error("Price fetch failed:", error);
-    }
-  }, []);
+    },
+    []
+  );
 
   useFocusEffect(
     useCallback(() => {
-      const loadAndFetchPrices = async () => {
+      const run = async () => {
         const data = await loadHoldings();
-        if (data.length > 0) {
-          fetchPricesForHoldings(data);
-        }
+        if (data.length > 0) fetchPricesForHoldings(data);
       };
-      loadAndFetchPrices();
+      run();
     }, [loadHoldings, fetchPricesForHoldings])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    const currentHoldings = await holdingsStorage.getAll();
-    await fetchPricesForHoldings(currentHoldings);
+    const current = await holdingsStorage.getAll();
+    await fetchPricesForHoldings(current);
     setRefreshing(false);
   }, [fetchPricesForHoldings]);
 
   const summary = useMemo(() => {
-    const totalValue = holdings.reduce(
-      (sum, h) => sum + h.shares * h.currentPrice,
-      0
-    );
-    const totalCost = holdings.reduce(
-      (sum, h) => sum + h.shares * h.averageCost,
-      0
-    );
+    const totalValue = holdings.reduce((s, h) => s + h.shares * h.currentPrice, 0);
+    const totalCost = holdings.reduce((s, h) => s + h.shares * h.averageCost, 0);
     const totalPL = totalValue - totalCost;
     const totalPLPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
-
-    return {
-      totalValue,
-      totalCost,
-      totalPL,
-      totalPLPercent,
-      holdingsCount: holdings.length,
-    };
+    return { totalValue, totalCost, totalPL, totalPLPercent, holdingsCount: holdings.length };
   }, [holdings]);
 
   const groupedHoldings = useMemo(() => {
-    const groups: { status: string; label: string; holdings: PortfolioHolding[] }[] = [];
-
+    const groups: { status: string; label: string; color: string; holdings: PortfolioHolding[] }[] =
+      [];
     STOCK_STATUSES.forEach((status) => {
       const statusHoldings = holdings.filter((h) => h.status === status.id);
       if (statusHoldings.length > 0) {
         groups.push({
           status: status.id,
           label: status.label,
+          color: status.color,
           holdings: statusHoldings,
         });
       }
     });
-
     return groups;
   }, [holdings]);
-
-  const handleAddHolding = () => {
-    navigation.navigate("AddHolding");
-  };
-
-  const handleHoldingPress = (holding: PortfolioHolding) => {
-    navigation.navigate("HoldingDetail", { holdingId: holding.id });
-  };
 
   const sectorData = useMemo(() => {
     const sectorMap = new Map<string, number>();
@@ -213,12 +172,86 @@ export default function PortfolioScreen() {
       .sort((a, b) => b.value - a.value);
   }, [holdings]);
 
-  const renderListHeader = () => {
-    const sortedSymbols = [...holdings]
-      .sort((a, b) => (b.shares * b.currentPrice) - (a.shares * a.currentPrice))
-      .map(h => h.symbol);
-      
-    return (
+  const sortedSymbols = useMemo(
+    () =>
+      [...holdings]
+        .sort((a, b) => b.shares * b.currentPrice - a.shares * a.currentPrice)
+        .map((h) => h.symbol),
+    [holdings]
+  );
+
+  const handleAddHolding = () => navigation.navigate("AddHolding");
+  const handleHoldingPress = (holding: PortfolioHolding) =>
+    navigation.navigate("HoldingDetail", { holdingId: holding.id });
+
+  // ── Insights panel ────────────────────────────────────────────────
+  const renderInsightsPanel = () => (
+    <View
+      style={[
+        styles.insightsContainer,
+        { backgroundColor: theme.backgroundDefault, borderColor: theme.cardBorder },
+      ]}
+    >
+      {/* Tab strip */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabStrip}
+      >
+        {INSIGHT_TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => setActiveTab(tab.id)}
+              style={[
+                styles.tabBtn,
+                isActive
+                  ? { backgroundColor: theme.primary }
+                  : { backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.tabLabel,
+                  { color: isActive ? "#fff" : theme.textSecondary },
+                ]}
+              >
+                {tab.label}
+              </ThemedText>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {/* Panel content */}
+      <View style={styles.tabContent}>
+        {activeTab === "sentiment" && (
+          <PortfolioSentimentGauge symbols={sortedSymbols} />
+        )}
+        {activeTab === "allocation" && (
+          <PortfolioDonut holdings={holdings} />
+        )}
+        {activeTab === "sector" && (
+          <>
+            <View style={{ alignItems: "center" }}>
+              <DonutChart
+                data={sectorData}
+                size={180}
+                strokeWidth={30}
+                centerValue={holdings.length.toString()}
+                centerLabel="Holdings"
+              />
+            </View>
+            <DonutChartLegend data={sectorData} total={summary.totalValue} />
+          </>
+        )}
+      </View>
+    </View>
+  );
+
+  // ── List header ───────────────────────────────────────────────────
+  const renderListHeader = () => (
     <>
       <SummaryCard
         totalValue={summary.totalValue}
@@ -226,68 +259,24 @@ export default function PortfolioScreen() {
         totalPLPercent={summary.totalPLPercent}
         holdingsCount={summary.holdingsCount}
       />
-      <CollapsibleSection
-        title="Portfolio Sentiment"
-        expanded={expanded.sentiment}
-        onToggle={() => toggleSection("sentiment")}
-      >
-        <PortfolioSentimentGauge symbols={sortedSymbols} />
-      </CollapsibleSection>
-      <CollapsibleSection
-        title="Holdings Allocation"
-        expanded={expanded.allocation}
-        onToggle={() => toggleSection("allocation")}
-      >
-        <PortfolioDonut holdings={holdings} />
-      </CollapsibleSection>
-      <CollapsibleSection
-        title="Sector Allocation"
-        expanded={expanded.sector}
-        onToggle={() => toggleSection("sector")}
-      >
-        <Card style={{ marginBottom: Spacing.md }}>
-          <View style={{ alignItems: "center" }}>
-            <DonutChart
-              data={sectorData}
-              size={180}
-              strokeWidth={30}
-              centerValue={holdings.length.toString()}
-              centerLabel="Holdings"
-            />
-          </View>
-          <DonutChartLegend data={sectorData} total={summary.totalValue} />
-        </Card>
-      </CollapsibleSection>
+      {renderInsightsPanel()}
+      <View style={styles.holdingsLabel}>
+        <ThemedText style={[styles.holdingsLabelText, { color: theme.textSecondary }]}>
+          Holdings
+        </ThemedText>
+      </View>
     </>
-    );
-  };
-
-  const renderEmptyComponent = () => (
-    <EmptyState
-      image={require("../../assets/images/empty-portfolio.png")}
-      title="No Holdings Yet"
-      message="Add your first stock holding to start tracking your EGX portfolio performance"
-    />
   );
 
+  // ── Flattened data ────────────────────────────────────────────────
   const flattenedData = useMemo(() => {
     const data: { type: "header" | "holding"; key: string; data: any }[] = [];
-
     groupedHoldings.forEach((group) => {
-      data.push({
-        type: "header",
-        key: `header-${group.status}`,
-        data: group.label,
-      });
+      data.push({ type: "header", key: `header-${group.status}`, data: group });
       group.holdings.forEach((holding) => {
-        data.push({
-          type: "holding",
-          key: holding.id,
-          data: holding,
-        });
+        data.push({ type: "holding", key: holding.id, data: holding });
       });
     });
-
     return data;
   }, [groupedHoldings]);
 
@@ -297,17 +286,22 @@ export default function PortfolioScreen() {
         style={styles.list}
         contentContainerStyle={[
           styles.listContent,
-          {
-            paddingTop: Spacing.xl,
-            paddingBottom: tabBarHeight + Spacing["4xl"],
-          },
+          { paddingTop: Spacing.xl, paddingBottom: tabBarHeight + Spacing["4xl"] },
           holdings.length === 0 && styles.emptyListContent,
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         data={holdings.length > 0 ? flattenedData : []}
         keyExtractor={(item) => item.key}
         ListHeaderComponent={holdings.length > 0 ? renderListHeader : null}
-        ListEmptyComponent={loading ? null : renderEmptyComponent}
+        ListEmptyComponent={
+          loading ? null : (
+            <EmptyState
+              image={require("../../assets/images/empty-portfolio.png")}
+              title="No Holdings Yet"
+              message="Add your first stock holding to start tracking your EGX portfolio performance"
+            />
+          )
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -317,40 +311,20 @@ export default function PortfolioScreen() {
         }
         renderItem={({ item }) => {
           if (item.type === "header") {
+            const group = item.data;
             return (
               <View style={styles.sectionHeader}>
                 <View
-                  style={[
-                    styles.sectionDot,
-                    {
-                      backgroundColor:
-                        STOCK_STATUSES.find((s) => s.label === item.data)?.color ||
-                        theme.textSecondary,
-                    },
-                  ]}
+                  style={[styles.sectionDot, { backgroundColor: group.color }]}
                 />
-                <View style={styles.sectionLabelContainer}>
-                  <View style={styles.sectionLabel}>
-                    <View
-                      style={[
-                        styles.sectionDot,
-                        {
-                          backgroundColor:
-                            STOCK_STATUSES.find((s) => s.label === item.data)
-                              ?.color || theme.textSecondary,
-                        },
-                      ]}
-                    />
-                    <View style={styles.sectionTextContainer}>
-                      <View
-                        style={[
-                          styles.sectionLabelText,
-                          { color: theme.textSecondary },
-                        ]}
-                      />
-                    </View>
-                  </View>
-                </View>
+                <ThemedText
+                  style={[styles.sectionLabel, { color: theme.textSecondary }]}
+                >
+                  {group.label}
+                </ThemedText>
+                <View
+                  style={[styles.sectionLine, { backgroundColor: theme.divider }]}
+                />
               </View>
             );
           }
@@ -368,44 +342,67 @@ export default function PortfolioScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  list: { flex: 1 },
+  listContent: { paddingHorizontal: Spacing.lg },
+  emptyListContent: { flexGrow: 1 },
+
+  // Insights panel
+  insightsContainer: {
+    borderRadius: BorderRadius["2xl"],
+    borderWidth: 1,
+    marginBottom: Spacing.lg,
+    overflow: "hidden",
   },
-  list: {
-    flex: 1,
+  tabStrip: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    padding: Spacing.md,
   },
-  listContent: {
+  tabBtn: {
     paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
   },
-  emptyListContent: {
-    flexGrow: 1,
+  tabLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  tabContent: {
+    padding: Spacing.md,
+    paddingTop: 0,
+  },
+
+  // Section headers
+  holdingsLabel: {
+    marginBottom: Spacing.sm,
+  },
+  holdingsLabelText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: Spacing.lg,
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
     marginBottom: Spacing.sm,
   },
   sectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: Spacing.sm,
-  },
-  sectionLabelContainer: {
-    flex: 1,
+    width: 7,
+    height: 7,
+    borderRadius: BorderRadius.full,
   },
   sectionLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  sectionTextContainer: {
-    flex: 1,
-  },
-  sectionLabelText: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+  },
+  sectionLine: {
+    flex: 1,
+    height: 1,
   },
 });
