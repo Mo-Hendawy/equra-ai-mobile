@@ -52,24 +52,20 @@ echo       Emulator launching, waiting for it to fully boot...
 echo       (This can take 30-90 seconds)
 echo.
 
-:wait_emulator
-timeout /t 5 /nobreak >nul
-call :find_emulator
-if not defined SERIAL (
-    echo       Still waiting for emulator to come online...
-    goto :wait_emulator
-)
+"%ADB%" wait-for-device
 
 :: Wait for boot to finish
 :wait_boot
 timeout /t 3 /nobreak >nul
-"%ADB%" -s %SERIAL% shell getprop sys.boot_completed >"%TMPFILE%" 2>nul
-set BOOT=
-set /p BOOT=<"%TMPFILE%"
+for /f "tokens=*" %%b in ('"%ADB%" shell getprop sys.boot_completed 2^>nul') do set BOOT=%%b
+set BOOT=%BOOT:~0,1%
 if not "%BOOT%"=="1" (
     echo       Waiting for boot to complete...
     goto :wait_boot
 )
+
+:: Get the serial of the now-booted emulator
+call :find_emulator
 echo       Emulator ready: %SERIAL%
 echo.
 
@@ -116,7 +112,7 @@ exit /b 0
 :find_emulator
 set SERIAL=
 "%ADB%" devices >"%TMPFILE%" 2>nul
-for /f "tokens=1,2" %%a in (%TMPFILE%) do (
+for /f "usebackq tokens=1,2" %%a in ("%TMPFILE%") do (
     echo %%a | findstr /R "emulator-" >nul 2>&1
     if not errorlevel 1 (
         echo %%b | findstr "device" >nul 2>&1

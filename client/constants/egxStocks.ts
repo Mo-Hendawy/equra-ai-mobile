@@ -13,7 +13,7 @@ export const EGX_STOCKS: EGXStock[] = [
   { symbol: "QNBA", nameEn: "QNB Alahli", nameAr: "بنك قطر الوطني الأهلي", sector: "Banks" },
   { symbol: "SAIB", nameEn: "Societe Arabe Internationale de Banque", nameAr: "المصرف العربي الدولي", sector: "Banks" },
   { symbol: "EGBE", nameEn: "Egyptian Gulf Bank", nameAr: "البنك المصري الخليجي", sector: "Banks" },
-  { symbol: "CREA", nameEn: "Credit Agricole Egypt", nameAr: "كريدي أجريكول مصر", sector: "Banks" },
+  { symbol: "CIEB", nameEn: "Credit Agricole Egypt", nameAr: "كريدي أجريكول مصر", sector: "Banks" },
   { symbol: "FAIT", nameEn: "Faisal Islamic Bank of Egypt", nameAr: "بنك فيصل الإسلامي المصري", sector: "Banks" },
   { symbol: "HDBK", nameEn: "Housing & Development Bank", nameAr: "بنك التعمير والإسكان", sector: "Banks" },
   { symbol: "NBKE", nameEn: "National Bank of Kuwait - Egypt", nameAr: "بنك الكويت الوطني مصر", sector: "Banks" },
@@ -23,7 +23,6 @@ export const EGX_STOCKS: EGXStock[] = [
   // Financial Services
   { symbol: "HRHO", nameEn: "EFG Hermes Holding", nameAr: "المجموعة المالية هيرميس القابضة", sector: "Financial Services" },
   { symbol: "EFIH", nameEn: "EFI Finance", nameAr: "اي اف جي للتمويل", sector: "Financial Services" },
-  { symbol: "CIEB", nameEn: "Credit Agricole Egypt", nameAr: "كريدي أجريكول مصر", sector: "Financial Services" },
   { symbol: "VALU", nameEn: "U Consumer Finance", nameAr: "فاليو", sector: "Financial Services" },
   { symbol: "AJWA", nameEn: "Ajwa For Food Industries Company Egypt", nameAr: "اجوا للصناعات الغذائية", sector: "Consumer Goods" },
   { symbol: "EFIC", nameEn: "Egyptian Financial & Industrial", nameAr: "المصرية المالية والصناعية", sector: "Financial Services" },
