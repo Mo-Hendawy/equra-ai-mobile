@@ -11,6 +11,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { FormInput } from "@/components/FormInput";
 import { SelectPicker } from "@/components/SelectPicker";
 import { ThemedText } from "@/components/ThemedText";
+import { DividendImportModal } from "@/components/DividendImportModal";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing } from "@/constants/theme";
 import { dividendsStorage, holdingsStorage } from "@/lib/storage";
@@ -45,6 +46,7 @@ export default function AddDividendScreen() {
   const [paymentDate, setPaymentDate] = useState("");
   const [status, setStatus] = useState<string>("announced");
   const [saving, setSaving] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
 
   const [showExDatePicker, setShowExDatePicker] = useState(false);
   const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
@@ -104,6 +106,25 @@ export default function AddDividendScreen() {
       ),
     });
   }, [navigation, selectedHolding, amount, exDate, paymentDate, status, saving, isEditing]);
+
+  const handleImportDividend = (extracted: {
+    symbol: string;
+    amount: number;
+    exDate: string | null;
+    paymentDate: string | null;
+    status: "announced" | "paid";
+  }) => {
+    if (extracted.symbol) {
+      const match = holdings.find(
+        (h) => h.symbol.toUpperCase() === extracted.symbol.toUpperCase()
+      );
+      if (match) setSelectedHolding(match.id);
+    }
+    if (extracted.amount != null) setAmount(String(extracted.amount));
+    if (extracted.exDate) setExDate(extracted.exDate);
+    if (extracted.paymentDate) setPaymentDate(extracted.paymentDate);
+    if (extracted.status) setStatus(extracted.status);
+  };
 
   const handleSave = async () => {
     if (!selectedHolding || !amount || !exDate || !paymentDate) {
@@ -180,6 +201,17 @@ export default function AddDividendScreen() {
         },
       ]}
     >
+      <TouchableOpacity
+        style={[styles.scanButton, { backgroundColor: theme.primary + "15", borderColor: theme.primary + "40" }]}
+        onPress={() => setImportModalVisible(true)}
+        activeOpacity={0.7}
+      >
+        <Feather name="camera" size={18} color={theme.primary} />
+        <ThemedText style={[styles.scanButtonText, { color: theme.primary }]}>
+          Import from Screenshot
+        </ThemedText>
+      </TouchableOpacity>
+
       <SelectPicker
         label="Stock"
         options={holdingOptions}
@@ -269,6 +301,12 @@ export default function AddDividendScreen() {
         onSelect={setStatus}
       />
     </KeyboardAwareScrollViewCompat>
+
+    <DividendImportModal
+      visible={importModalVisible}
+      onClose={() => setImportModalVisible(false)}
+      onImport={handleImportDividend}
+    />
   );
 }
 
@@ -297,5 +335,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     paddingVertical: Spacing.sm,
+  },
+  scanButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: Spacing.xl,
+  },
+  scanButtonText: {
+    fontWeight: "600",
+    fontSize: 15,
   },
 });

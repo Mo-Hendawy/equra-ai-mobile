@@ -38,3 +38,4 @@ DerivedData
 *.hmap
 *.ipa
 *.xcuserstate
+.env

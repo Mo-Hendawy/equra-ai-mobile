@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -204,6 +204,33 @@ export default function RealizedGainsScreen() {
   const profitableCount = gains.filter((g) => g.profit > 0).length;
   const lossCount = gains.filter((g) => g.profit < 0).length;
 
+  const symbolSummaries = useMemo(() => {
+    const tradesBySymbol: Record<string, number> = {};
+    for (const g of gains) {
+      const sym = g.symbol.toUpperCase();
+      tradesBySymbol[sym] = (tradesBySymbol[sym] || 0) + (g.profit || 0);
+    }
+    const divsBySymbol: Record<string, number> = {};
+    for (const d of dividends) {
+      if (d.status !== "paid") continue;
+      const sym = d.symbol.toUpperCase();
+      divsBySymbol[sym] = (divsBySymbol[sym] || 0) + (d.amount || 0);
+    }
+    const allSymbols = new Set([
+      ...Object.keys(tradesBySymbol),
+      ...Object.keys(divsBySymbol),
+    ]);
+    return [...allSymbols]
+      .filter((sym) => sym.length > 0)
+      .map((sym) => ({
+        symbol: sym,
+        tradeProfit: tradesBySymbol[sym] ?? 0,
+        dividendIncome: divsBySymbol[sym] ?? 0,
+        total: (tradesBySymbol[sym] ?? 0) + (divsBySymbol[sym] ?? 0),
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [gains, dividends]);
+
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-EG", {
       style: "currency",
@@ -211,6 +238,7 @@ export default function RealizedGainsScreen() {
     }).format(value);
 
   const renderHeader = () => (
+    <>
     <Card style={styles.summaryCard}>
       <View style={styles.summaryRow}>
         <View style={styles.summaryItem}>
@@ -285,6 +313,62 @@ export default function RealizedGainsScreen() {
         </View>
       </View>
     </Card>
+
+    {symbolSummaries.length > 0 && (
+      <Card style={styles.byStockCard}>
+        <ThemedText
+          type="small"
+          style={{ color: theme.textSecondary, fontWeight: "600", letterSpacing: 0.5, marginBottom: Spacing.md }}
+        >
+          BY STOCK
+        </ThemedText>
+        {symbolSummaries.map((item, index) => {
+          const isProfit = item.total >= 0;
+          const hasBreakdown = item.dividendIncome > 0;
+          return (
+            <View
+              key={item.symbol}
+              style={[
+                styles.symbolRow,
+                index < symbolSummaries.length - 1 && {
+                  borderBottomWidth: 1,
+                  borderBottomColor: theme.divider,
+                },
+              ]}
+            >
+              <View style={{ flex: 1 }}>
+                <ThemedText type="h4">{item.symbol}</ThemedText>
+                {hasBreakdown && item.tradeProfit !== 0 && (
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }}>
+                    {"Trades "}
+                    {item.tradeProfit >= 0 ? "+" : ""}
+                    {formatCurrency(item.tradeProfit)}
+                    {"  ·  Div +"}
+                    {formatCurrency(item.dividendIncome)}
+                  </ThemedText>
+                )}
+                {item.tradeProfit === 0 && item.dividendIncome > 0 && (
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }}>
+                    Dividends only
+                  </ThemedText>
+                )}
+              </View>
+              <ThemedText
+                style={[
+                  Typography.mono,
+                  styles.symbolTotal,
+                  { color: isProfit ? theme.success : theme.error },
+                ]}
+              >
+                {isProfit ? "+" : ""}
+                {formatCurrency(item.total)}
+              </ThemedText>
+            </View>
+          );
+        })}
+      </Card>
+    )}
+    </>
   );
 
   const renderGain = ({ item }: { item: RealizedGain }) => {
@@ -421,7 +505,7 @@ export default function RealizedGainsScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot }]}
+          style={[styles.modalContainer, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top }]}
         >
           <View style={[styles.modalHeader, { borderBottomColor: theme.divider }]}>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
@@ -555,6 +639,14 @@ const styles = StyleSheet.create({
   statItem: { flex: 1, alignItems: "center" },
   statDivider: { width: 1, height: 32 },
   statValue: { fontSize: 20, fontWeight: "700", marginBottom: Spacing.xs },
+  byStockCard: { marginBottom: Spacing.lg },
+  symbolRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+  },
+  symbolTotal: { fontSize: 16, fontWeight: "600" },
   gainCard: { marginBottom: Spacing.md },
   gainHeader: {
     flexDirection: "row",
