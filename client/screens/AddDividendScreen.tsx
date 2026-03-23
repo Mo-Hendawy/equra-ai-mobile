@@ -191,6 +191,7 @@ export default function AddDividendScreen() {
   };
 
   return (
+    <>
     <KeyboardAwareScrollViewCompat
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={[
@@ -307,6 +308,7 @@ export default function AddDividendScreen() {
       onClose={() => setImportModalVisible(false)}
       onImport={handleImportDividend}
     />
+    </>
   );
 }
 
