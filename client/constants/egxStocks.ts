@@ -84,7 +84,7 @@ export const EGX_STOCKS: EGXStock[] = [
   { symbol: "EGAL", nameEn: "Egypt Aluminum", nameAr: "مصر للألومنيوم", sector: "Basic Materials" },
   { symbol: "NSGD", nameEn: "National Steel Industrial", nameAr: "الحديد والصلب للمباني", sector: "Basic Materials" },
   { symbol: "MICH", nameEn: "Misr Chemical Industries", nameAr: "مصر للصناعات الكيماوية", sector: "Basic Materials" },
-  { symbol: "ISPH", nameEn: "Ispat Steel Industries", nameAr: "إسبات للصناعات الحديدية", sector: "Basic Materials" },
+  { symbol: "ISPH", nameEn: "Ibnsina Pharma", nameAr: "ابن سينا فارما", sector: "Healthcare" },
   { symbol: "TORA", nameEn: "Tourah Cement", nameAr: "اسمنت طره", sector: "Industrial" },
   { symbol: "SUCE", nameEn: "Suez Cement", nameAr: "أسمنت السويس", sector: "Industrial" },
   { symbol: "SCEM", nameEn: "Sinai Cement", nameAr: "أسمنت سيناء", sector: "Industrial" },
