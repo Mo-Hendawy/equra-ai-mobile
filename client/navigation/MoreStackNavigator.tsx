@@ -6,6 +6,7 @@ import TargetsScreen from "@/screens/TargetsScreen";
 import RealizedGainsScreen from "@/screens/RealizedGainsScreen";
 import BackupRestoreScreen from "@/screens/BackupRestoreScreen";
 import ResetPortfolioScreen from "@/screens/ResetPortfolioScreen";
+import ThndrImportsScreen from "@/screens/ThndrImportsScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type MoreStackParamList = {
@@ -15,6 +16,7 @@ export type MoreStackParamList = {
   RealizedGains: undefined;
   BackupRestore: undefined;
   ResetPortfolio: undefined;
+  ThndrImports: undefined;
 };
 
 const Stack = createNativeStackNavigator<MoreStackParamList>();
@@ -64,6 +66,13 @@ export default function MoreStackNavigator() {
         component={ResetPortfolioScreen}
         options={{
           headerTitle: "Reset Portfolio",
+        }}
+      />
+      <Stack.Screen
+        name="ThndrImports"
+        component={ThndrImportsScreen}
+        options={{
+          headerTitle: "Thndr Imports",
         }}
       />
     </Stack.Navigator>

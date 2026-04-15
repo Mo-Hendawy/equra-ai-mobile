@@ -150,6 +150,14 @@ export default function MoreScreen() {
         iconColor="#2E7D32"
       />
 
+      <MenuListItem
+        icon="mail"
+        title="Thndr Imports"
+        subtitle="Review trades forwarded from Thndr"
+        onPress={() => navigation.navigate("ThndrImports")}
+        iconColor="#FF6F00"
+      />
+
       <ThemedText type="small" style={styles.sectionTitle}>
         DATA
       </ThemedText>

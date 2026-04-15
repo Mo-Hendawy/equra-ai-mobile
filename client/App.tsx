@@ -30,6 +30,14 @@ function navigateToCalendarNotifications() {
   });
 }
 
+function navigateToThndrImports() {
+  if (!navigationRef.isReady()) return;
+  navigationRef.navigate("Main", {
+    screen: "MoreTab",
+    params: { screen: "ThndrImports" },
+  });
+}
+
 const APP_VERSION = "2.0.9"; // Increment this to trigger auto-reset
 
 export default function App() {
@@ -63,19 +71,21 @@ export default function App() {
 
     registerForPushNotifications().catch((e) => console.warn("[App] push register failed:", e));
 
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data ?? {};
+    const routeFromData = (data: Record<string, unknown>, defer: number) => {
       if (data?.route === "DividendCalendar") {
-        navigateToCalendarNotifications();
+        defer > 0 ? setTimeout(navigateToCalendarNotifications, defer) : navigateToCalendarNotifications();
+      } else if (data?.route === "ThndrImports") {
+        defer > 0 ? setTimeout(navigateToThndrImports, defer) : navigateToThndrImports();
       }
+    };
+
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      routeFromData(response.notification.request.content.data ?? {}, 0);
     });
 
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (!response) return;
-      const data = response.notification.request.content.data ?? {};
-      if (data?.route === "DividendCalendar") {
-        setTimeout(navigateToCalendarNotifications, 600);
-      }
+      routeFromData(response.notification.request.content.data ?? {}, 600);
     }).catch(() => { /* not available on all platforms */ });
 
     return () => sub.remove();

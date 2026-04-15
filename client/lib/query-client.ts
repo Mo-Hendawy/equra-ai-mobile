@@ -12,6 +12,11 @@ export function getApiUrl(): string {
     return "https://equra-ai-backend-production-fb87.up.railway.app";
   }
 
+  // Preserve explicit http:// / https:// scheme (required for local-dev backends)
+  if (host.startsWith("http://") || host.startsWith("https://")) {
+    return new URL(host).href;
+  }
+
   let url = new URL(`https://${host}`);
 
   return url.href;
