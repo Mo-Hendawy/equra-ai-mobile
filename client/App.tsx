@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { StyleSheet, View, ActivityIndicator } from "react-native";
+import { StyleSheet, View, ActivityIndicator, Platform } from "react-native";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -57,11 +57,12 @@ export default function App() {
     checkAndResetIfNeeded();
   }, []);
 
-  // Push notifications: register on app launch + handle taps
+  // Push notifications: register on app launch + handle taps (native only — web doesn't implement these APIs)
   useEffect(() => {
+    if (Platform.OS === "web") return;
+
     registerForPushNotifications().catch((e) => console.warn("[App] push register failed:", e));
 
-    // Tap handler: when the user taps a notification, route into the Notifications tab
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data ?? {};
       if (data?.route === "DividendCalendar") {
@@ -69,15 +70,13 @@ export default function App() {
       }
     });
 
-    // Cold-start: if the app was opened by tapping a notification, handle it once nav is ready
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (!response) return;
       const data = response.notification.request.content.data ?? {};
       if (data?.route === "DividendCalendar") {
-        // Defer until NavigationContainer mounts
         setTimeout(navigateToCalendarNotifications, 600);
       }
-    });
+    }).catch(() => { /* not available on all platforms */ });
 
     return () => sub.remove();
   }, []);

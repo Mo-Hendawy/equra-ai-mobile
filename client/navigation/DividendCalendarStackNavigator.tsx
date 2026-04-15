@@ -17,7 +17,7 @@ export default function DividendCalendarStackNavigator() {
       <Stack.Screen
         name="DividendCalendar"
         component={DividendCalendarScreen}
-        options={{ headerTitle: "Dividend Calendar" }}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

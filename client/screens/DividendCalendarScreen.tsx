@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Pressable, Text } from "react-native";
+import { View, StyleSheet, Pressable, Text, Platform } from "react-native";
 import { WebView } from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
@@ -10,6 +10,33 @@ import type { DividendCalendarStackParamList } from "@/navigation/DividendCalend
 
 type Tab = "calendar" | "notifications";
 type Route = RouteProp<DividendCalendarStackParamList, "DividendCalendar">;
+
+const CALENDAR_URL = "https://claps.therumble.app/events/month/";
+
+// react-native-webview doesn't support web — fall back to a native iframe there.
+function CalendarEmbed() {
+  if (Platform.OS === "web") {
+    return (
+      <View style={styles.webview}>
+        {React.createElement("iframe", {
+          src: CALENDAR_URL,
+          style: { border: 0, width: "100%", height: "100%" },
+          title: "Dividend Calendar",
+        })}
+      </View>
+    );
+  }
+  return (
+    <WebView
+      source={{ uri: CALENDAR_URL }}
+      style={styles.webview}
+      startInLoadingState
+      scalesPageToFit
+      javaScriptEnabled
+      domStorageEnabled
+    />
+  );
+}
 
 export default function DividendCalendarScreen() {
   const insets = useSafeAreaInsets();
@@ -39,18 +66,7 @@ export default function DividendCalendarScreen() {
         <TabButton label="Notifications" active={tab === "notifications"} onPress={() => setTab("notifications")} theme={theme} />
       </View>
 
-      {tab === "calendar" ? (
-        <WebView
-          source={{ uri: "https://claps.therumble.app/events/month/" }}
-          style={styles.webview}
-          startInLoadingState
-          scalesPageToFit
-          javaScriptEnabled
-          domStorageEnabled
-        />
-      ) : (
-        <DividendNotificationsView />
-      )}
+      {tab === "calendar" ? <CalendarEmbed /> : <DividendNotificationsView />}
     </View>
   );
 }
