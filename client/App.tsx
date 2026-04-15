@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, View, ActivityIndicator } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
@@ -14,6 +15,20 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { resetPortfolio } from "@/lib/reset-portfolio";
 import { migrateOBEYtoOLFI } from "@/lib/storage";
 import { ThemedText } from "@/components/ThemedText";
+import { registerForPushNotifications } from "@/lib/push-notifications";
+
+const navigationRef = createNavigationContainerRef<any>();
+
+function navigateToCalendarNotifications() {
+  if (!navigationRef.isReady()) return;
+  navigationRef.navigate("Main", {
+    screen: "DividendCalendarTab",
+    params: {
+      screen: "DividendCalendar",
+      params: { initialTab: "notifications" },
+    },
+  });
+}
 
 const APP_VERSION = "2.0.9"; // Increment this to trigger auto-reset
 
@@ -42,6 +57,31 @@ export default function App() {
     checkAndResetIfNeeded();
   }, []);
 
+  // Push notifications: register on app launch + handle taps
+  useEffect(() => {
+    registerForPushNotifications().catch((e) => console.warn("[App] push register failed:", e));
+
+    // Tap handler: when the user taps a notification, route into the Notifications tab
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data ?? {};
+      if (data?.route === "DividendCalendar") {
+        navigateToCalendarNotifications();
+      }
+    });
+
+    // Cold-start: if the app was opened by tapping a notification, handle it once nav is ready
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!response) return;
+      const data = response.notification.request.content.data ?? {};
+      if (data?.route === "DividendCalendar") {
+        // Defer until NavigationContainer mounts
+        setTimeout(navigateToCalendarNotifications, 600);
+      }
+    });
+
+    return () => sub.remove();
+  }, []);
+
   if (loading) {
     return (
       <View style={[styles.root, { justifyContent: "center", alignItems: "center", backgroundColor: "#1B5E20" }]}>
@@ -56,7 +96,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
           <GestureHandlerRootView style={styles.root}>
-            <NavigationContainer>
+            <NavigationContainer ref={navigationRef}>
               <StatusBar style="auto" />
               <RootStackNavigator />
             </NavigationContainer>

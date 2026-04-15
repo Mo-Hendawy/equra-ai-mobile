@@ -4,7 +4,7 @@ import DividendCalendarScreen from "@/screens/DividendCalendarScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type DividendCalendarStackParamList = {
-  DividendCalendar: undefined;
+  DividendCalendar: { initialTab?: "calendar" | "notifications" } | undefined;
 };
 
 const Stack = createNativeStackNavigator<DividendCalendarStackParamList>();
