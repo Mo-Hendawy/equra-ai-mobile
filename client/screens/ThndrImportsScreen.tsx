@@ -151,7 +151,7 @@ export default function ThndrImportsScreen() {
       data={items}
       keyExtractor={(item) => String(item.id)}
       contentContainerStyle={{ padding: 12, paddingTop: headerHeight + 12, backgroundColor: theme.backgroundRoot }}
-      style={{ backgroundColor: theme.backgroundRoot }}
+      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
       ListHeaderComponent={headerNode}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.primary} />}
       renderItem={({ item }) => (
