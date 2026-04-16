@@ -11,7 +11,10 @@ import {
   TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHeaderHeight } from "@react-navigation/elements";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import * as DocumentPicker from "expo-document-picker";
+import { File } from "expo-file-system";
 
 import { useTheme } from "@/hooks/useTheme";
 import { apiRequest, getQueryFn } from "@/lib/query-client";
@@ -42,34 +45,103 @@ interface PendingResponse {
 export default function ThndrImportsScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const qc = useQueryClient();
+  const [uploading, setUploading] = useState(false);
   const { data, isLoading, refetch, isRefetching, error } = useQuery<PendingResponse>({
     queryKey: ["api", "thndr", "pending"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
+  async function handleUpload() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      setUploading(true);
+      const mimeType =
+        asset.mimeType ??
+        (asset.name?.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg");
+      const base64 = await readAsBase64(asset.uri);
+      const res = await apiRequest("POST", "/api/thndr/upload", {
+        base64,
+        contentType: mimeType,
+      });
+      const json = await res.json();
+      await qc.invalidateQueries({ queryKey: ["api", "thndr", "pending"] });
+
+      const savedCount = json.savedCount ?? 0;
+      const dupes = json.duplicateCount ?? 0;
+      const errs = json.errors ?? [];
+      if (savedCount > 0) {
+        Alert.alert("Imported", `${savedCount} transaction${savedCount === 1 ? "" : "s"} added to your review queue.`);
+      } else if (dupes > 0 && errs.length === 0) {
+        Alert.alert("Already imported", "That invoice's transactions are already in your queue or portfolio.");
+      } else {
+        Alert.alert("No transactions found", errs.length > 0 ? errs.join("\n") : "The file didn't contain any recognizable Thndr transactions.");
+      }
+    } catch (e: any) {
+      Alert.alert("Upload failed", e.message ?? String(e));
+    } finally {
+      setUploading(false);
+    }
+  }
+
   if (isLoading) {
     return (
-      <View style={[styles.center, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top }]}>
+      <View style={[styles.center, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
         <ActivityIndicator color={theme.primary} />
       </View>
     );
   }
   if (error) {
     return (
-      <View style={[styles.center, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top }]}>
+      <View style={[styles.center, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
         <Text style={{ color: theme.error }}>Could not load pending imports.</Text>
       </View>
     );
   }
 
   const items = data?.pending ?? [];
+
+  const headerNode = (
+    <View style={{ marginBottom: 12 }}>
+      <Pressable
+        onPress={handleUpload}
+        disabled={uploading}
+        style={[
+          styles.uploadBtn,
+          { backgroundColor: theme.primary, opacity: uploading ? 0.6 : 1 },
+        ]}
+      >
+        <Text style={{ color: "#fff", fontWeight: "700" }}>
+          {uploading ? "Parsing…" : "Upload invoice (PDF or screenshot)"}
+        </Text>
+      </Pressable>
+      <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 6, textAlign: "center" }}>
+        Forwarded Thndr emails land here automatically. Use this button for one-off imports.
+      </Text>
+    </View>
+  );
+
   if (items.length === 0) {
     return (
-      <View style={[styles.center, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top }]}>
-        <Text style={{ color: theme.textSecondary, textAlign: "center", paddingHorizontal: 32 }}>
-          No pending Thndr imports. Forwarded invoices will appear here for review.
-        </Text>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight + 12, paddingHorizontal: 12 },
+        ]}
+      >
+        {headerNode}
+        <View style={[styles.center, { flex: 1 }]}>
+          <Text style={{ color: theme.textSecondary, textAlign: "center", paddingHorizontal: 32 }}>
+            No pending Thndr imports. Forwarded invoices will appear here for review.
+          </Text>
+        </View>
       </View>
     );
   }
@@ -78,8 +150,9 @@ export default function ThndrImportsScreen() {
     <FlatList
       data={items}
       keyExtractor={(item) => String(item.id)}
-      contentContainerStyle={{ padding: 12, paddingTop: insets.top + 12, backgroundColor: theme.backgroundRoot }}
+      contentContainerStyle={{ padding: 12, paddingTop: headerHeight + 12, backgroundColor: theme.backgroundRoot }}
       style={{ backgroundColor: theme.backgroundRoot }}
+      ListHeaderComponent={headerNode}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.primary} />}
       renderItem={({ item }) => (
         <PendingCard
@@ -89,6 +162,31 @@ export default function ThndrImportsScreen() {
       )}
     />
   );
+}
+
+/**
+ * Read a file URI to base64. On native expo-file-system does it directly;
+ * on web the URI is usually a blob:// URL so we fetch → arrayBuffer → base64.
+ */
+async function readAsBase64(uri: string): Promise<string> {
+  if (uri.startsWith("blob:") || uri.startsWith("data:") || uri.startsWith("http")) {
+    const res = await fetch(uri);
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // strip "data:<type>;base64,"
+        const comma = result.indexOf(",");
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  }
+  // Native file URI (file://...)
+  const file = new File(uri);
+  return await file.base64();
 }
 
 function PendingCard({ item, onSettled }: { item: ThndrPending; onSettled: () => void }) {
@@ -297,6 +395,12 @@ async function applyToHoldings(
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1 },
+  uploadBtn: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   card: {
     borderWidth: 1,
