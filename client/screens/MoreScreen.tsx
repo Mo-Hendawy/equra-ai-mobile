@@ -3,7 +3,7 @@ import { View, ScrollView, StyleSheet, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useFocusEffect, DrawerActions } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { Card } from "@/components/Card";
@@ -126,6 +126,14 @@ export default function MoreScreen() {
       <ThemedText type="small" style={styles.sectionTitle}>
         FEATURES
       </ThemedText>
+
+      <MenuListItem
+        icon="book-open"
+        title="Investment Playbook"
+        subtitle="Your trading rules — swipe left edge to access"
+        onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+        iconColor="#1B5E20"
+      />
 
       <MenuListItem
         icon="eye"

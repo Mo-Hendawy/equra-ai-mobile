@@ -625,19 +625,32 @@ async function applyToHoldings(
   const holdings = await holdingsStorage.getAll();
   const existing = holdings.find((h) => h.symbol === symbol);
 
+  const qty = Number(txn.quantity) || 0;
+  const price = Number(txn.price) || 0;
+
   if (txn.transactionType === "buy") {
     if (existing) {
-      const newShares = existing.shares + txn.quantity;
+      const oldShares = Number(existing.shares) || 0;
+      const oldAvg = Number(existing.averageCost) || 0;
+      const newShares = oldShares + qty;
       const newAvg =
         newShares === 0
           ? 0
-          : (existing.shares * existing.averageCost +
-              txn.quantity * txn.price) /
-            newShares;
+          : (oldShares * oldAvg + qty * price) / newShares;
       await holdingsStorage.update(existing.id, {
         shares: newShares,
         averageCost: Number(newAvg.toFixed(4)),
       });
+      // Read-after-write: verify the update actually persisted
+      const verify = await holdingsStorage.getById(existing.id);
+      if (verify && verify.shares !== newShares) {
+        console.warn(`[applyToHoldings] shares mismatch after write: expected ${newShares}, got ${verify.shares}`);
+        // Retry once — handles concurrent read-modify-write race with price fetcher
+        await holdingsStorage.update(existing.id, {
+          shares: newShares,
+          averageCost: Number(newAvg.toFixed(4)),
+        });
+      }
       return existing.id;
     } else {
       const newHolding = await holdingsStorage.add({
@@ -645,9 +658,9 @@ async function applyToHoldings(
         nameEn: stock.nameEn,
         nameAr: stock.nameAr,
         sector: stock.sector,
-        shares: txn.quantity,
-        averageCost: txn.price,
-        currentPrice: txn.price,
+        shares: qty,
+        averageCost: price,
+        currentPrice: price,
         role: "growth",
         status: "hold",
       });
@@ -659,18 +672,20 @@ async function applyToHoldings(
   if (!existing) {
     throw new Error(`Cannot sell ${symbol} — no existing holding found`);
   }
-  const newShares = existing.shares - txn.quantity;
+  const oldShares = Number(existing.shares) || 0;
+  const oldAvg = Number(existing.averageCost) || 0;
+  const newShares = oldShares - qty;
   if (newShares < 0) {
     throw new Error(
-      `Cannot sell ${txn.quantity} ${symbol} — only ${existing.shares} held`
+      `Cannot sell ${qty} ${symbol} — only ${oldShares} held`
     );
   }
-  const profit = (txn.price - existing.averageCost) * txn.quantity;
+  const profit = (price - oldAvg) * qty;
   await realizedGainsStorage.add({
     symbol,
-    shares: txn.quantity,
-    buyPrice: existing.averageCost,
-    sellPrice: txn.price,
+    shares: qty,
+    buyPrice: oldAvg,
+    sellPrice: price,
     buyDate: existing.createdAt ?? new Date().toISOString(),
     sellDate: new Date().toISOString(),
     profit,
