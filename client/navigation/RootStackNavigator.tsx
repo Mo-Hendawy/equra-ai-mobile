@@ -1,6 +1,6 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import MainTabNavigator from "@/navigation/MainTabNavigator";
+import MainDrawerNavigator from "@/navigation/MainDrawerNavigator";
 import AddHoldingScreen from "@/screens/AddHoldingScreen";
 import HoldingDetailScreen from "@/screens/HoldingDetailScreen";
 import AddCertificateScreen from "@/screens/AddCertificateScreen";
@@ -33,7 +33,7 @@ export default function RootStackNavigator() {
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen
         name="Main"
-        component={MainTabNavigator}
+        component={MainDrawerNavigator}
         options={{ headerShown: false }}
       />
       <Stack.Screen
