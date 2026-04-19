@@ -339,13 +339,20 @@ export default function RealizedGainsScreen() {
               <View style={{ flex: 1 }}>
                 <ThemedText type="h4">{item.symbol}</ThemedText>
                 {hasBreakdown && item.tradeProfit !== 0 && (
-                  <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }}>
-                    {"Trades "}
-                    {item.tradeProfit >= 0 ? "+" : ""}
-                    {formatCurrency(item.tradeProfit)}
-                    {"  ·  Div +"}
-                    {formatCurrency(item.dividendIncome)}
-                  </ThemedText>
+                  <View style={{ marginTop: 4, gap: 1 }}>
+                    <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                      {"Trades  "}
+                      <ThemedText type="small" style={[Typography.mono, { color: item.tradeProfit >= 0 ? theme.success : theme.error }]}>
+                        {item.tradeProfit >= 0 ? "+" : ""}{formatCurrency(item.tradeProfit)}
+                      </ThemedText>
+                    </ThemedText>
+                    <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                      {"Div        "}
+                      <ThemedText type="small" style={[Typography.mono, { color: theme.success }]}>
+                        +{formatCurrency(item.dividendIncome)}
+                      </ThemedText>
+                    </ThemedText>
+                  </View>
                 )}
                 {item.tradeProfit === 0 && item.dividendIncome > 0 && (
                   <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }}>
@@ -643,7 +650,7 @@ const styles = StyleSheet.create({
   symbolRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     paddingVertical: Spacing.md,
   },
   symbolTotal: { fontSize: 16, fontWeight: "600" },

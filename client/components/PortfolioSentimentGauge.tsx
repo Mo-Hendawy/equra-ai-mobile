@@ -19,12 +19,14 @@ export function PortfolioSentimentGauge({ symbols }: PortfolioSentimentGaugeProp
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchSentiment() {
       if (symbols.length === 0) {
         setLoading(false);
         return;
       }
-      
+
       try {
         setLoading(true);
         setError(null);
@@ -32,16 +34,18 @@ export function PortfolioSentimentGauge({ symbols }: PortfolioSentimentGaugeProp
         const topSymbols = symbols.slice(0, 5);
         const res = await apiRequest("POST", `/api/portfolio-sentiment`, { symbols: topSymbols });
         const data = await res.json();
+        if (cancelled) return;
         if (data.error) throw new Error(data.error);
         setSentiment(data);
       } catch (err) {
-        setError("Failed to load portfolio sentiment");
+        if (!cancelled) setError("Failed to load portfolio sentiment");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
-    
+
     fetchSentiment();
+    return () => { cancelled = true; };
   }, [symbols]);
 
   if (symbols.length === 0) {

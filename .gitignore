@@ -39,3 +39,4 @@ DerivedData
 *.ipa
 *.xcuserstate
 .env
+google-services.json

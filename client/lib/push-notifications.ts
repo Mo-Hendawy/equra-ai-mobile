@@ -1,13 +1,13 @@
 // Push notification setup for the dividend calendar feature.
-// Request permission, get an Expo push token, register it with the backend.
+// Uses raw FCM (Android) / APNs (iOS) device tokens — no Expo cloud.
+// Works with release APKs built via the native Android toolchain.
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { Platform } from "react-native";
-import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest } from "@/lib/query-client";
 
-const REGISTERED_TOKEN_KEY = "@push_token_registered_v1";
+const REGISTERED_TOKEN_KEY = "@push_token_registered_v2";
 
 // Foreground display behavior — show the notification even when app is open.
 Notifications.setNotificationHandler({
@@ -30,8 +30,9 @@ async function ensureAndroidChannel(): Promise<void> {
 }
 
 /**
- * Registers this device for push notifications.
- * Safe to call on every app launch — it will short-circuit if already registered.
+ * Registers this device for push notifications using the raw platform
+ * token (FCM on Android, APNs on iOS). Safe to call on every app launch —
+ * short-circuits if the same token is already registered on the backend.
  */
 export async function registerForPushNotifications(): Promise<string | null> {
   try {
@@ -53,18 +54,16 @@ export async function registerForPushNotifications(): Promise<string | null> {
       return null;
     }
 
-    const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ??
-      (Constants as unknown as { easConfig?: { projectId?: string } }).easConfig?.projectId;
-    if (!projectId || projectId === "REPLACE_ME_RUN_eas_init") {
-      console.log("[push] EAS projectId not configured — run `eas init` to enable production push");
+    // Raw FCM/APNs token — requires google-services.json on Android,
+    // GoogleService-Info.plist on iOS to be present at build time.
+    const tokenResp = await Notifications.getDevicePushTokenAsync();
+    const token = tokenResp.data;
+    if (!token || typeof token !== "string") {
+      console.warn("[push] no device token returned");
       return null;
     }
 
-    const tokenResp = await Notifications.getExpoPushTokenAsync({ projectId });
-    const token = tokenResp.data;
-
-    // Avoid re-POST if same token was already registered
+    // Idempotency: avoid re-POSTing the same token on every launch
     const lastRegistered = await AsyncStorage.getItem(REGISTERED_TOKEN_KEY);
     if (lastRegistered === token) {
       console.log("[push] token unchanged — skipping backend register");
@@ -76,7 +75,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
       platform: Platform.OS,
     });
     await AsyncStorage.setItem(REGISTERED_TOKEN_KEY, token);
-    console.log("[push] registered token with backend");
+    console.log("[push] registered FCM token with backend");
     return token;
   } catch (err) {
     console.warn("[push] registration failed:", err);

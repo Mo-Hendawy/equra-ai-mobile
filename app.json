@@ -19,7 +19,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.egx.portfolio"
+      "package": "com.egx.portfolio",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "single",
@@ -51,11 +52,6 @@
     ],
     "experiments": {
       "reactCompiler": true
-    },
-    "extra": {
-      "eas": {
-        "projectId": "REPLACE_ME_RUN_eas_init"
-      }
     }
   }
 }

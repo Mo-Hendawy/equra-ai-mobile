@@ -120,6 +120,11 @@ export const holdingsStorage = {
     const holdings = await holdingsStorage.getAll();
     return holdings.find((h) => h.id === id);
   },
+
+  // Persist a new order without modifying any field values.
+  reorder: async (orderedHoldings: PortfolioHolding[]) => {
+    await setItems(STORAGE_KEYS.HOLDINGS, orderedHoldings);
+  },
 };
 
 const HSBC_CERTIFICATES_SEED = [

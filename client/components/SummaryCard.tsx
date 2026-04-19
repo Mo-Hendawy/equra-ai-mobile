@@ -53,7 +53,7 @@ export function SummaryCard({
       <ThemedText style={styles.label}>Portfolio Value</ThemedText>
 
       {/* Big value */}
-      <ThemedText style={styles.value} numberOfLines={1} adjustsFontSizeToFit>
+      <ThemedText style={styles.value}>
         {formatCurrency(totalValue)}
       </ThemedText>
 
@@ -116,16 +116,16 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   decorLarge: {
-    width: 200,
-    height: 200,
-    top: -60,
-    right: -50,
+    width: 160,
+    height: 160,
+    top: -30,
+    right: -30,
   },
   decorSmall: {
-    width: 120,
-    height: 120,
-    bottom: -40,
-    left: -20,
+    width: 100,
+    height: 100,
+    bottom: -20,
+    left: -10,
   },
   // Holdings pill
   holdingsPill: {

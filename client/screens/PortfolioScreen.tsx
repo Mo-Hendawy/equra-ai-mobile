@@ -1,13 +1,16 @@
 import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
-  FlatList,
   StyleSheet,
   RefreshControl,
   Platform,
   Pressable,
   ScrollView,
 } from "react-native";
+import DraggableFlatList, {
+  ScaleDecorator,
+  RenderItemParams,
+} from "react-native-draggable-flatlist";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -21,7 +24,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { PortfolioDonut } from "@/components/PortfolioDonut";
 import { PortfolioSentimentGauge } from "@/components/PortfolioSentimentGauge";
 import { DonutChart, DonutChartLegend } from "@/components/DonutChart";
-import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
@@ -33,6 +35,7 @@ import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type InsightTab = "sentiment" | "allocation" | "sector";
+type FlatItem = { type: "header" | "holding"; key: string; data: any };
 
 const SECTOR_COLORS = [
   "#1B5E20", "#1565C0", "#7B1FA2", "#F57C00", "#C62828",
@@ -132,6 +135,15 @@ export default function PortfolioScreen() {
     setRefreshing(false);
   }, [fetchPricesForHoldings]);
 
+  // Only reorders the array — does not modify any field values on the holdings.
+  const handleDragEnd = useCallback(async ({ data }: { data: FlatItem[] }) => {
+    const reorderedHoldings = data
+      .filter((item) => item.type === "holding")
+      .map((item) => item.data as PortfolioHolding);
+    setHoldings(reorderedHoldings);
+    await holdingsStorage.reorder(reorderedHoldings);
+  }, []);
+
   const summary = useMemo(() => {
     const totalValue = holdings.reduce((s, h) => s + h.shares * h.currentPrice, 0);
     const totalCost = holdings.reduce((s, h) => s + h.shares * h.averageCost, 0);
@@ -224,28 +236,26 @@ export default function PortfolioScreen() {
         })}
       </ScrollView>
 
-      {/* Panel content */}
+      {/* Panel content — use display:none to keep components mounted (avoids re-fetching) */}
       <View style={styles.tabContent}>
-        {activeTab === "sentiment" && (
+        <View style={activeTab !== "sentiment" ? styles.hidden : undefined}>
           <PortfolioSentimentGauge symbols={sortedSymbols} />
-        )}
-        {activeTab === "allocation" && (
+        </View>
+        <View style={activeTab !== "allocation" ? styles.hidden : undefined}>
           <PortfolioDonut holdings={holdings} />
-        )}
-        {activeTab === "sector" && (
-          <>
-            <View style={{ alignItems: "center" }}>
-              <DonutChart
-                data={sectorData}
-                size={180}
-                strokeWidth={30}
-                centerValue={holdings.length.toString()}
-                centerLabel="Holdings"
-              />
-            </View>
-            <DonutChartLegend data={sectorData} total={summary.totalValue} />
-          </>
-        )}
+        </View>
+        <View style={activeTab !== "sector" ? styles.hidden : undefined}>
+          <View style={{ alignItems: "center" }}>
+            <DonutChart
+              data={sectorData}
+              size={180}
+              strokeWidth={30}
+              centerValue={holdings.length.toString()}
+              centerLabel="Holdings"
+            />
+          </View>
+          <DonutChartLegend data={sectorData} total={summary.totalValue} />
+        </View>
       </View>
     </View>
   );
@@ -269,8 +279,8 @@ export default function PortfolioScreen() {
   );
 
   // ── Flattened data ────────────────────────────────────────────────
-  const flattenedData = useMemo(() => {
-    const data: { type: "header" | "holding"; key: string; data: any }[] = [];
+  const flattenedData = useMemo<FlatItem[]>(() => {
+    const data: FlatItem[] = [];
     groupedHoldings.forEach((group) => {
       data.push({ type: "header", key: `header-${group.status}`, data: group });
       group.holdings.forEach((holding) => {
@@ -282,8 +292,7 @@ export default function PortfolioScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      <FlatList
-        style={styles.list}
+      <DraggableFlatList<FlatItem>
         contentContainerStyle={[
           styles.listContent,
           { paddingTop: Spacing.xl, paddingBottom: tabBarHeight + Spacing["4xl"] },
@@ -292,6 +301,7 @@ export default function PortfolioScreen() {
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         data={holdings.length > 0 ? flattenedData : []}
         keyExtractor={(item) => item.key}
+        onDragEnd={handleDragEnd}
         ListHeaderComponent={holdings.length > 0 ? renderListHeader : null}
         ListEmptyComponent={
           loading ? null : (
@@ -309,30 +319,27 @@ export default function PortfolioScreen() {
             tintColor={theme.primary}
           />
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, drag, isActive }: RenderItemParams<FlatItem>) => {
           if (item.type === "header") {
             const group = item.data;
             return (
               <View style={styles.sectionHeader}>
-                <View
-                  style={[styles.sectionDot, { backgroundColor: group.color }]}
-                />
-                <ThemedText
-                  style={[styles.sectionLabel, { color: theme.textSecondary }]}
-                >
+                <View style={[styles.sectionDot, { backgroundColor: group.color }]} />
+                <ThemedText style={[styles.sectionLabel, { color: theme.textSecondary }]}>
                   {group.label}
                 </ThemedText>
-                <View
-                  style={[styles.sectionLine, { backgroundColor: theme.divider }]}
-                />
+                <View style={[styles.sectionLine, { backgroundColor: theme.divider }]} />
               </View>
             );
           }
           return (
-            <HoldingItem
-              holding={item.data}
-              onPress={() => handleHoldingPress(item.data)}
-            />
+            <ScaleDecorator>
+              <HoldingItem
+                holding={item.data}
+                onPress={() => handleHoldingPress(item.data)}
+                onLongPress={drag}
+              />
+            </ScaleDecorator>
           );
         }}
       />
@@ -343,7 +350,6 @@ export default function PortfolioScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  list: { flex: 1 },
   listContent: { paddingHorizontal: Spacing.lg },
   emptyListContent: { flexGrow: 1 },
 
@@ -373,7 +379,7 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
 
-  // Section headers
+  // Holdings label
   holdingsLabel: {
     marginBottom: Spacing.sm,
   },
@@ -383,6 +389,8 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1,
   },
+
+  // Section headers
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -404,5 +412,8 @@ const styles = StyleSheet.create({
   sectionLine: {
     flex: 1,
     height: 1,
+  },
+  hidden: {
+    display: "none",
   },
 });

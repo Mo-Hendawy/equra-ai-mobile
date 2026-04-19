@@ -16,11 +16,12 @@ import type { PortfolioHolding } from "@/types";
 interface HoldingItemProps {
   holding: PortfolioHolding;
   onPress: () => void;
+  onLongPress?: () => void;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function HoldingItem({ holding, onPress }: HoldingItemProps) {
+export function HoldingItem({ holding, onPress, onLongPress }: HoldingItemProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
 
@@ -58,6 +59,7 @@ export function HoldingItem({ holding, onPress }: HoldingItemProps) {
   return (
     <AnimatedPressable
       onPress={handlePress}
+      onLongPress={onLongPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       style={[
