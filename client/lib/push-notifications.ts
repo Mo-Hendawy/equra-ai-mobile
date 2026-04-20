@@ -4,10 +4,7 @@
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { Platform } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest } from "@/lib/query-client";
-
-const REGISTERED_TOKEN_KEY = "@push_token_registered_v2";
 
 // Foreground display behavior — show the notification even when app is open.
 Notifications.setNotificationHandler({
@@ -63,18 +60,13 @@ export async function registerForPushNotifications(): Promise<string | null> {
       return null;
     }
 
-    // Idempotency: avoid re-POSTing the same token on every launch
-    const lastRegistered = await AsyncStorage.getItem(REGISTERED_TOKEN_KEY);
-    if (lastRegistered === token) {
-      console.log("[push] token unchanged — skipping backend register");
-      return token;
-    }
-
+    // Always re-register on every launch — backend upserts on conflict,
+    // and this self-heals if the push_tokens table was wiped server-side
+    // (e.g. ephemeral filesystem redeploy).
     await apiRequest("POST", "/api/push-tokens", {
       token,
       platform: Platform.OS,
     });
-    await AsyncStorage.setItem(REGISTERED_TOKEN_KEY, token);
     console.log("[push] registered FCM token with backend");
     return token;
   } catch (err) {
