@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect, DrawerActions } from "@react-navigation/native";
+import { Alert } from "react-native";
+import { registerForPushNotifications } from "@/lib/push-notifications";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { Card } from "@/components/Card";
@@ -133,6 +135,24 @@ export default function MoreScreen() {
         subtitle="Your trading rules — swipe left edge to access"
         onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
         iconColor="#1B5E20"
+      />
+
+      <MenuListItem
+        icon="bell"
+        title="Re-register notifications"
+        subtitle="Re-send push token if you stopped getting alerts"
+        iconColor="#F57C00"
+        onPress={async () => {
+          const token = await registerForPushNotifications({ force: true });
+          if (token) {
+            Alert.alert("Registered", `Token sent to backend:\n${token.slice(0, 40)}…`);
+          } else {
+            Alert.alert(
+              "Not registered",
+              "Could not get a push token. Check permissions in device settings."
+            );
+          }
+        }}
       />
 
       <MenuListItem

@@ -33,8 +33,13 @@ async function ensureAndroidChannel(): Promise<void> {
  * Registers this device for push notifications using the raw platform
  * token (FCM on Android, APNs on iOS). Safe to call on every app launch —
  * short-circuits if the same token is already registered on the backend.
+ * Pass `{ force: true }` to bypass the AsyncStorage cache (e.g. from a
+ * manual "Re-register" button when the backend forgot the token).
  */
-export async function registerForPushNotifications(): Promise<string | null> {
+export async function registerForPushNotifications(opts?: {
+  force?: boolean;
+}): Promise<string | null> {
+  const force = opts?.force === true;
   try {
     if (!Device.isDevice) {
       console.log("[push] skipped — not a physical device");
@@ -63,11 +68,14 @@ export async function registerForPushNotifications(): Promise<string | null> {
       return null;
     }
 
-    // Idempotency: avoid re-POSTing the same token on every launch
-    const lastRegistered = await AsyncStorage.getItem(REGISTERED_TOKEN_KEY);
-    if (lastRegistered === token) {
-      console.log("[push] token unchanged — skipping backend register");
-      return token;
+    // Idempotency: avoid re-POSTing the same token on every launch.
+    // Bypass when caller passes force:true (e.g. manual re-register).
+    if (!force) {
+      const lastRegistered = await AsyncStorage.getItem(REGISTERED_TOKEN_KEY);
+      if (lastRegistered === token) {
+        console.log("[push] token unchanged — skipping backend register");
+        return token;
+      }
     }
 
     await apiRequest("POST", "/api/push-tokens", {
