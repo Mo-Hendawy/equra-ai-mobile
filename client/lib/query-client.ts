@@ -9,7 +9,7 @@ export function getApiUrl(): string {
 
   // Use Railway backend by default
   if (!host) {
-    return "https://equra-ai-backend-production-fb87.up.railway.app";
+    return "https://equra-ai-backend-production-be12.up.railway.app";
   }
 
   // Preserve explicit http:// / https:// scheme (required for local-dev backends)
