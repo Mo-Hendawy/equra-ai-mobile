@@ -1,14 +1,10 @@
 import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import * as Haptics from "expo-haptics";
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, NunitoFont } from "@/constants/theme";
 
 interface Segment {
   id: string;
@@ -21,6 +17,8 @@ interface SegmentedControlProps {
   onSelect: (id: string) => void;
 }
 
+// Filled-segment control — handoff AI screen uses inactive=bg-secondary,
+// active=bg-default (white) with primary-green label + soft drop shadow.
 export function SegmentedControl({
   segments,
   selectedId,
@@ -54,10 +52,12 @@ export function SegmentedControl({
             ]}
           >
             <ThemedText
-              type="small"
               style={[
                 styles.label,
-                isSelected && { color: theme.primary, fontWeight: "600" },
+                {
+                  color: isSelected ? theme.primary : theme.textSecondary,
+                  fontFamily: isSelected ? NunitoFont.bold : NunitoFont.semibold,
+                },
               ]}
             >
               {segment.label}
@@ -91,5 +91,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: -0.1,
   },
 });

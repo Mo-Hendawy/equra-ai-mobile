@@ -1,8 +1,7 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
-import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { Spacing, BorderRadius, Shadows, Palette, NunitoFont } from "@/constants/theme";
 
 interface SummaryCardProps {
   totalValue: number;
@@ -11,13 +10,13 @@ interface SummaryCardProps {
   holdingsCount: number;
 }
 
+// Portfolio hero — near-black panel with gold accent pill.
 export function SummaryCard({
   totalValue,
   totalPL,
   totalPLPercent,
   holdingsCount,
 }: SummaryCardProps) {
-  const { theme } = useTheme();
   const isPositive = totalPL >= 0;
 
   const formatCurrency = (value: number) =>
@@ -28,72 +27,61 @@ export function SummaryCard({
       maximumFractionDigits: 0,
     }).format(value);
 
+  const formatNumber = (value: number) =>
+    new Intl.NumberFormat("en-EG", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Math.abs(value));
+
   const formatPercent = (value: number) => {
-    const sign = value >= 0 ? "+" : "";
-    return `${sign}${value.toFixed(2)}%`;
+    const sign = value >= 0 ? "+" : "−";
+    return `${sign}${Math.abs(value).toFixed(2)}%`;
   };
 
-  const BG = "#1A5C1A";
-  const BG_LIGHT = "#1E6B1E";
+  // Gold for positive, muted gray-black for negative. Only black/gold/white.
+  const accentColor = isPositive ? Palette.gold : Palette.black400;
+  const accentPillBg = isPositive
+    ? "rgba(212,168,90,0.14)"  // gold-tint
+    : "rgba(255,255,255,0.06)";
+  const accentPillBorder = isPositive
+    ? "rgba(212,168,90,0.38)"
+    : "rgba(255,255,255,0.14)";
 
   return (
-    <View style={[styles.container, { backgroundColor: BG }, Shadows.large]}>
-      {/* Decorative background circles */}
-      <View style={[styles.decor, styles.decorLarge, { backgroundColor: BG_LIGHT }]} />
-      <View style={[styles.decor, styles.decorSmall, { backgroundColor: BG_LIGHT }]} />
+    <View style={[styles.container, Shadows.medium]}>
+      {/* Subtle gold corner glow for luxury feel */}
+      <View style={styles.goldGlow} />
 
-      {/* Holdings count pill — top right */}
-      <View style={styles.holdingsPill}>
-        <ThemedText style={styles.holdingsPillText}>
-          {holdingsCount} Holdings
-        </ThemedText>
+      <View style={styles.topRow}>
+        <View style={styles.pill}>
+          <ThemedText style={styles.pillText}>
+            {holdingsCount} HOLDINGS
+          </ThemedText>
+        </View>
       </View>
 
-      {/* Label */}
       <ThemedText style={styles.label}>Portfolio Value</ThemedText>
-
-      {/* Big value */}
-      <ThemedText style={styles.value}>
+      <ThemedText style={styles.value} numberOfLines={1} adjustsFontSizeToFit>
         {formatCurrency(totalValue)}
       </ThemedText>
 
-      {/* Divider */}
       <View style={styles.divider} />
 
-      {/* P/L row */}
       <View style={styles.plRow}>
-        <View>
+        <View style={{ flex: 1 }}>
           <ThemedText style={styles.plLabel}>Total P / L</ThemedText>
-          <ThemedText
-            style={[
-              styles.plValue,
-              { color: isPositive ? "#A5D6A7" : "#EF9A9A" },
-            ]}
-          >
-            {isPositive ? "+" : ""}
-            {formatCurrency(totalPL)}
+          <ThemedText style={[styles.plValue, { color: accentColor }]}>
+            {isPositive ? "+" : "−"}{formatNumber(totalPL)}
           </ThemedText>
         </View>
 
         <View
           style={[
             styles.percentPill,
-            {
-              backgroundColor: isPositive
-                ? "rgba(165, 214, 167, 0.20)"
-                : "rgba(239, 154, 154, 0.20)",
-              borderColor: isPositive
-                ? "rgba(165, 214, 167, 0.40)"
-                : "rgba(239, 154, 154, 0.40)",
-            },
+            { backgroundColor: accentPillBg, borderColor: accentPillBorder },
           ]}
         >
-          <ThemedText
-            style={[
-              styles.percentText,
-              { color: isPositive ? "#A5D6A7" : "#EF9A9A" },
-            ]}
-          >
+          <ThemedText style={[styles.percentText, { color: accentColor }]}>
             {formatPercent(totalPLPercent)}
           </ThemedText>
         </View>
@@ -104,61 +92,65 @@ export function SummaryCard({
 
 const styles = StyleSheet.create({
   container: {
-    padding: Spacing["2xl"],
-    borderRadius: BorderRadius["2xl"],
-    marginBottom: Spacing.lg,
+    backgroundColor: Palette.black900,
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(212,168,90,0.15)",  // gold hairline
+    marginTop: 6,
+    marginBottom: 10,
+    marginHorizontal: 2,
     overflow: "hidden",
   },
-  // Decorative circles
-  decor: {
+  goldGlow: {
     position: "absolute",
-    borderRadius: BorderRadius.full,
-    opacity: 0.5,
+    top: -60,
+    right: -60,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: Palette.gold,
+    opacity: 0.08,
   },
-  decorLarge: {
-    width: 160,
-    height: 160,
-    top: -30,
-    right: -30,
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    marginBottom: 10,
   },
-  decorSmall: {
-    width: 100,
-    height: 100,
-    bottom: -20,
-    left: -10,
-  },
-  // Holdings pill
-  holdingsPill: {
+  pill: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(212,168,90,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(212,168,90,0.30)",
     borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    marginBottom: Spacing.xl,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  holdingsPillText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.85)",
-    letterSpacing: 0.4,
+  pillText: {
+    fontSize: 10,
+    fontFamily: NunitoFont.bold,
+    color: Palette.gold,
+    letterSpacing: 0.6,
   },
   label: {
-    fontSize: 13,
+    fontSize: 12,
+    fontFamily: NunitoFont.medium,
     color: "rgba(255,255,255,0.60)",
-    marginBottom: Spacing.xs,
-    letterSpacing: 0.3,
+    marginBottom: 2,
   },
   value: {
-    fontSize: 36,
+    fontSize: 32,
+    fontFamily: NunitoFont.extrabold,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: Palette.white,
     letterSpacing: -0.5,
-    marginBottom: Spacing.xl,
+    fontVariant: ["tabular-nums"],
   },
   divider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    marginBottom: Spacing.xl,
+    backgroundColor: "rgba(212,168,90,0.18)",
+    marginTop: 14,
+    marginBottom: 14,
   },
   plRow: {
     flexDirection: "row",
@@ -166,25 +158,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   plLabel: {
-    fontSize: 12,
+    fontSize: 11,
+    fontFamily: NunitoFont.medium,
     color: "rgba(255,255,255,0.55)",
-    marginBottom: 4,
-    letterSpacing: 0.3,
+    marginBottom: 2,
   },
   plValue: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 17,
+    fontFamily: NunitoFont.bold,
     letterSpacing: -0.3,
+    fontVariant: ["tabular-nums"],
   },
   percentPill: {
     borderWidth: 1,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    borderRadius: 9999,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
   },
   percentText: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 13,
+    fontFamily: NunitoFont.bold,
     letterSpacing: 0.2,
   },
 });

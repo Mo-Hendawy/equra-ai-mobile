@@ -80,6 +80,8 @@ export function Card({
         styles.card,
         {
           backgroundColor: cardBackgroundColor,
+          borderWidth: 1,
+          borderColor: theme.cardBorder,
         },
         animatedStyle,
         style,

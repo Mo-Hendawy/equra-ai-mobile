@@ -167,11 +167,12 @@ export const SECTORS = [
 ];
 
 export const STOCK_ROLES = [
-  { id: "core", label: "Core", color: "#1B5E20" },
-  { id: "income", label: "Income", color: "#1565C0" },
-  { id: "growth", label: "Growth", color: "#7B1FA2" },
-  { id: "swing", label: "Swing", color: "#F57C00" },
-  { id: "speculative", label: "Speculative", color: "#C62828" },
+  { id: "core", label: "Core", color: "#D4A85A" },
+  { id: "income", label: "Income", color: "#B08830" },
+  { id: "growth", label: "Growth", color: "#E5C277" },
+  { id: "cyclical", label: "Cyclical", color: "#8B6A1F" },
+  { id: "swing", label: "Swing", color: "#8C8A82" },
+  { id: "speculative", label: "Speculative", color: "#6A6A66" },
 ] as const;
 
 export const STOCK_STATUSES = [

@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Equra AI · Claude Design Handoff vs App · Side-by-side Comparison</title>
+<style>
+  :root {
+    --fg: #0F1110;
+    --fg-muted: #4a4a46;
+    --bg: #F5F3EE;
+    --panel: #FFFFFF;
+    --border: #E8E6DF;
+    --ok: #1B5E20;
+    --mid: #F57C00;
+    --off: #9a9a94;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.55;
+  }
+  header {
+    padding: 48px 40px 24px;
+    max-width: 1400px; margin: 0 auto;
+  }
+  header .kicker {
+    color: var(--ok);
+    font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  header h1 {
+    font-size: 32px; font-weight: 800; letter-spacing: -0.5px;
+    margin: 0 0 8px;
+  }
+  header p {
+    color: var(--fg-muted); max-width: 680px; margin: 0;
+  }
+  main { max-width: 1400px; margin: 0 auto; padding: 0 40px 80px; }
+  section.page {
+    margin-top: 56px;
+    padding: 24px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+  }
+  section.page .page-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  section.page h2 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.3px;
+    margin: 0;
+  }
+  section.page .badge {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
+    padding: 4px 10px; border-radius: 9999px;
+  }
+  .badge-match { background: #E8F5E9; color: var(--ok); }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .panel .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .panel .panel-title {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+  .panel .panel-source {
+    font-size: 10px; letter-spacing: 0.6px; color: var(--off);
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+  }
+  .panel img {
+    display: block; width: 100%; height: auto;
+    background: #fff;
+  }
+  .deltas {
+    margin-top: 18px;
+    padding: 16px 18px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .deltas h3 {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--fg-muted);
+    margin: 0 0 8px;
+  }
+  .deltas ul { margin: 0; padding-left: 20px; }
+  .deltas li { margin-bottom: 4px; color: var(--fg); font-size: 14px; }
+  .deltas li.ok::marker { color: var(--ok); }
+  .deltas li.ok { }
+  .legend {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    margin-top: 16px;
+    font-size: 13px; color: var(--fg-muted);
+  }
+  .legend .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 9999px;
+    margin-right: 6px; vertical-align: middle;
+  }
+  footer {
+    max-width: 1400px; margin: 0 auto;
+    padding: 0 40px 64px;
+    color: var(--off);
+    font-size: 12px;
+  }
+  .summary-table {
+    width: 100%; margin-top: 16px; border-collapse: collapse;
+    font-size: 14px;
+  }
+  .summary-table th, .summary-table td {
+    text-align: left; padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .summary-table th {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+    color: var(--fg-muted); background: var(--bg);
+  }
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    background: var(--bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="kicker">Design match report</div>
+    <h1>Equra AI — Claude Design handoff vs implementation</h1>
+    <p>Side-by-side visual comparison of the three signature screens mocked up in Claude Design (Portfolio, AI Analysis, More) against the current React Native implementation rendered via Expo web.</p>
+  </header>
+
+  <main>
+    <!-- Summary -->
+    <section class="page">
+      <div class="page-head">
+        <h2>Coverage summary</h2>
+      </div>
+      <table class="summary-table">
+        <thead>
+          <tr><th>Screen</th><th>Mocked in handoff?</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Portfolio</td><td>Yes (<code>ui_kits/mobile/screen-portfolio.jsx</code>)</td><td>Structural match</td></tr>
+          <tr><td>AI Analysis</td><td>Yes (<code>ui_kits/mobile/screen-ai.jsx</code>)</td><td>Structural match</td></tr>
+          <tr><td>More</td><td>Yes (<code>ui_kits/mobile/screen-more.jsx</code>)</td><td>Structural match</td></tr>
+          <tr><td>Tracking, Analytics, HoldingDetail, Add*, Buy/Sell, Targets, RealizedGains, Thndr, Watchlist, BackupRestore, ResetPortfolio</td><td>Not mocked</td><td>Use design tokens only</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Portfolio -->
+    <section class="page" id="portfolio">
+      <div class="page-head">
+        <h2>Portfolio</h2>
+        <span class="badge badge-match">Structural match</span>
+      </div>
+      <div class="grid">
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-title">Claude Design handoff</span>
+            <span class="panel-source">ui_kits/mobile · Portfolio</span>
+          </div>
+          <img src="handoff-portfolio.png" alt="Handoff Portfolio mockup">
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-title">App (Expo web · 375×760)</span>
+            <span class="panel-source">client/screens/PortfolioScreen.tsx</span>
+          </div>
+          <img src="mine-portfolio-pass2.png" alt="App Portfolio screen">
+        </div>
+      </div>
+      <div class="deltas">
+        <h3>Match notes</h3>
+        <ul>
+          <li class="ok">Title bar: <code>Portfolio</code> h1 + <code>Last updated just now</code> + refresh icon</li>
+          <li class="ok">Deep green hero card with decorative circles</li>
+          <li class="ok">Top pill: <code>12 HOLDINGS</code></li>
+          <li class="ok">Bignum portfolio value, tabular numerics</li>
+          <li class="ok">Divider + P/L row with signed amount and outlined percent pill</li>
+          <li class="ok">Section header pattern: colored dot + uppercase label + count + rule</li>
+          <li class="ok">Holding rows: 4 px left accent, role pill (CORE/GROW/SPEC), company name, shares · price, value right, P/L pill, signed amount</li>
+          <li class="ok">Orange <code>#FF6F00</code> FAB bottom-right</li>
+          <li class="ok">5-tab labeled bar: Portfolio · Tracking · AI · Analytics · More</li>
+        </ul>
+        <h3 style="margin-top:14px">Data differences (not design)</h3>
+        <ul>
+          <li>Handoff shows mock holdings (CIB, EAST, OLFI); app shows user's real holdings (ADCI, COMI, EGAL, …)</li>
+          <li>Section count differs because real portfolio has different role distribution</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- AI Analysis -->
+    <section class="page" id="ai">
+      <div class="page-head">
+        <h2>AI Analysis</h2>
+        <span class="badge badge-match">Structural match</span>
+      </div>
+      <div class="grid">
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-title">Claude Design handoff</span>
+            <span class="panel-source">ui_kits/mobile · AI Analysis</span>
+          </div>
+          <img src="handoff-ai.png" alt="Handoff AI Analysis mockup">
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-title">App (Expo web · 375×760)</span>
+            <span class="panel-source">client/screens/AIScreen.tsx</span>
+          </div>
+          <img src="mine-ai-pass4.png" alt="App AI Analysis screen">
+        </div>
+      </div>
+      <div class="deltas">
+        <h3>Match notes</h3>
+        <ul>
+          <li class="ok">Title bar: <code>AI Analysis</code> h1 + <code>5 models · side-by-side</code> + settings gear</li>
+          <li class="ok">Green gradient hero <code>Portfolio Analysis</code> (135° <code>#1B5E20 → #0F3D13</code>) with white subtitle</li>
+          <li class="ok">Filled segmented control: Portfolio / Compare / Deploy / Behavior — active row uses white bg + green text with subtle shadow</li>
+          <li class="ok">Primary CTA: full-width green pill <code>Analyze with All AI Models</code> with bolt icon</li>
+          <li class="ok">Model-verdicts section header with colored dot and count (renders after analysis runs)</li>
+          <li class="ok">Provider cards with left-colored accent, provider tile icon, name + model (mono), verdict pill, bullets</li>
+        </ul>
+        <h3 style="margin-top:14px">Difference</h3>
+        <ul>
+          <li>App screenshot captured pre-analysis (empty state). Handoff mockup shows post-analysis state with Gemini / DeepSeek / Cerebras verdict cards. The code path renders the same structure when analysis data exists.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- More -->
+    <section class="page" id="more">
+      <div class="page-head">
+        <h2>More</h2>
+        <span class="badge badge-match">Structural match</span>
+      </div>
+      <div class="grid">
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-title">Claude Design handoff</span>
+            <span class="panel-source">ui_kits/mobile · More</span>
+          </div>
+          <img src="handoff-more.png" alt="Handoff More mockup">
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-title">App (Expo web · 375×760)</span>
+            <span class="panel-source">client/screens/MoreScreen.tsx</span>
+          </div>
+          <img src="mine-more-nodiscover.png" alt="App More screen">
+        </div>
+      </div>
+      <div class="deltas">
+        <h3>Match notes</h3>
+        <ul>
+          <li class="ok">Large left-aligned <code>More</code> h1 title (stack header hidden for this route)</li>
+          <li class="ok">FEATURES section: green dot + uppercase label + horizontal rule</li>
+          <li class="ok">Grouped white card with 4 rows: Investment Playbook · Watchlist · Targets · Realized Gains</li>
+          <li class="ok">36×36 color-tinted icon tiles (<code>color + 22</code> bg, <code>color</code> icon)</li>
+          <li class="ok">Chevron-right on every row; divider-only between rows inside the group</li>
+          <li class="ok">DATA section: orange dot + label + rule → Thndr Imports · Backup &amp; Restore · Reset Portfolio</li>
+          <li class="ok">Subtitles now match handoff copy exactly</li>
+          <li class="ok">5-tab labeled bar at bottom</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Design system notes -->
+    <section class="page">
+      <div class="page-head"><h2>Design tokens applied</h2></div>
+      <table class="summary-table">
+        <thead>
+          <tr><th>Token</th><th>Value</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Primary brand</td><td><code>#1B5E20</code></td><td>theme.ts · Colors.light.primary</td></tr>
+          <tr><td>Accent (action)</td><td><code>#FF6F00</code></td><td>theme.ts · Colors.light.accent (FAB)</td></tr>
+          <tr><td>Success P/L</td><td><code>#2E7D32</code> / pale <code>#A5D6A7</code> on dark</td><td>theme.ts</td></tr>
+          <tr><td>Error P/L</td><td><code>#C62828</code> / <code>#EF9A9A</code> on dark</td><td>theme.ts</td></tr>
+          <tr><td>Typeface</td><td>Nunito 400/500/600/700/800/900</td><td><code>@expo-google-fonts/nunito</code> in App.tsx</td></tr>
+          <tr><td>Icon family</td><td>Feather (handoff substitutes Lucide; near-identical)</td><td><code>@expo/vector-icons</code></td></tr>
+          <tr><td>Radii</td><td>cards 14-24, pills 9999</td><td>theme.ts · BorderRadius</td></tr>
+          <tr><td>Spacing</td><td>4-based scale 4/8/12/16/20/24/32</td><td>theme.ts · Spacing</td></tr>
+          <tr><td>Shadows</td><td>small · medium · large · float (lime glow)</td><td>theme.ts · Shadows</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    Generated from <code>equra-ai-design-system-handoff.tar.gz</code> · Mobile app repo: <code>github.com/Mo-Hendawy/equra-ai-mobile</code>
+  </footer>
+</body>
+</html>

@@ -15,10 +15,11 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 
+import { LinearGradient } from "expo-linear-gradient";
 import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Spacing, BorderRadius, Typography, Palette } from "@/constants/theme";
 import {
   holdingsStorage,
   transactionsStorage,
@@ -31,7 +32,49 @@ import { apiRequest } from "@/lib/query-client";
 import { EGX_STOCKS } from "@/constants/egxStocks";
 import type { PortfolioHolding, StockTransaction, Dividend, RealizedGain, WatchlistItem, Target } from "@/types";
 
-type AITab = "portfolio" | "compare" | "deploy" | "behavior";
+type AITab = "portfolio" | "compare" | "deploy" | "behavior" | "swing";
+
+interface SwingAnalysisResult {
+  symbol: string;
+  finalVerdict: "BUY_NOW" | "CAN_WAIT" | "AVOID";
+  adjustedConfidence: "High" | "Medium" | "Low";
+  recommendation: {
+    verdict: string;
+    confidence: string;
+    entryRange: { low: number; high: number } | null;
+    stopLoss: number | null;
+    targetPrice: number | null;
+    timeframeWeeks: number;
+    technicalSignals: string[];
+    fundamentalCatalysts: string[];
+    risks: string[];
+    citations: { source: string; snippet: string }[];
+    reasoning: string;
+  };
+  criticFeedback: {
+    counterVerdict: string;
+    weakness: string;
+    severity: string;
+    counterScenario: string;
+    blockingIssues: string[];
+  } | null;
+  technicals: {
+    currentPrice: number;
+    asOf: string;
+    sma20: number | null;
+    sma50: number | null;
+    distanceFromSma50Pct: number | null;
+    momentum20dPct: number | null;
+    realizedVol20dPct: number | null;
+    range52w: { high: number; low: number } | null;
+    rangePositionPct: number | null;
+    recentVolumeMultiple: number | null;
+  };
+  ragUsed: boolean;
+  model: string;
+  decisionId: number | null;
+  elapsedMs: number;
+}
 
 interface ProviderResult {
   provider: string;
@@ -44,11 +87,11 @@ interface ProviderResult {
 }
 
 const PROVIDER_COLORS: Record<string, string> = {
-  gemini: "#4285F4",
-  deepseek: "#0066FF",
-  kimi: "#FF6B35",
-  groq: "#F55036",
-  cerebras: "#7C3AED",
+  gemini: "#D4A85A",       // gold
+  deepseek: "#B08830",     // gold-900
+  kimi: "#E5C277",         // gold-400
+  groq: "#8B6A1F",         // gold-deep
+  cerebras: "#6A6A66",     // muted black
 };
 
 const PROVIDER_ICONS: Record<string, string> = {
@@ -73,6 +116,12 @@ export default function AIScreen() {
   const [compareResults, setCompareResults] = useState<ProviderResult[]>([]);
   const [deployResults, setDeployResults] = useState<ProviderResult[]>([]);
   const [behaviorResults, setBehaviorResults] = useState<ProviderResult[]>([]);
+
+  // Swing-trade state
+  const [swingSymbol, setSwingSymbol] = useState<string>("");
+  const [swingResult, setSwingResult] = useState<SwingAnalysisResult | null>(null);
+  const [swingLoading, setSwingLoading] = useState(false);
+  const [swingError, setSwingError] = useState<string | null>(null);
 
   // Behavior data (loaded when Behavior tab is active)
   const [behaviorData, setBehaviorData] = useState<{
@@ -759,54 +808,97 @@ export default function AIScreen() {
     });
   };
 
-  // ─── Sub-tab bar ───
+  // ─── Sub-tab bar ─── filled-segment pattern from handoff
   const renderTabs = () => (
     <View style={[styles.tabBar, { backgroundColor: theme.backgroundSecondary, borderColor: theme.divider }]}>
       {([
         { id: "portfolio" as AITab, label: "Portfolio", icon: "activity" },
+        { id: "swing" as AITab, label: "Swing", icon: "zap" },
         { id: "compare" as AITab, label: "Compare", icon: "git-pull-request" },
         { id: "deploy" as AITab, label: "Deploy", icon: "dollar-sign" },
         { id: "behavior" as AITab, label: "Behavior", icon: "trending-up" },
-      ] as const).map((tab) => (
-        <TouchableOpacity
-          key={tab.id}
-          style={[styles.tabItem, activeTab === tab.id && { backgroundColor: theme.primary }]}
-          onPress={() => setActiveTab(tab.id)}
-        >
-          <Feather name={tab.icon as any} size={16} color={activeTab === tab.id ? "#FFFFFF" : theme.textSecondary} />
-          <ThemedText style={[styles.tabLabel, { color: activeTab === tab.id ? "#FFFFFF" : theme.textSecondary }]}>
-            {tab.label}
-          </ThemedText>
-        </TouchableOpacity>
-      ))}
+      ] as const).map((tab) => {
+        const active = activeTab === tab.id;
+        return (
+          <TouchableOpacity
+            key={tab.id}
+            style={[
+              styles.tabItem,
+              active && { backgroundColor: theme.backgroundDefault },
+            ]}
+            onPress={() => setActiveTab(tab.id)}
+          >
+            <Feather name={tab.icon as any} size={13} color={active ? theme.primary : theme.textSecondary} />
+            <ThemedText style={[styles.tabLabel, { color: active ? theme.primary : theme.textSecondary }]}>
+              {tab.label}
+            </ThemedText>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 
-  // ─── Portfolio Tab ───
+  // ─── Portfolio Tab ───  Matches handoff: green gradient hero rendered at
+  // screen level (above seg tabs); here we render only CTA + verdicts + results.
   const renderPortfolio = () => (
     <View>
-      {portfolioResults.length === 0 && (
-        <Card style={styles.card}>
-          <Feather name="activity" size={48} color={theme.primary} style={{ alignSelf: "center", marginBottom: Spacing.lg }} />
-          <ThemedText type="h4" style={{ textAlign: "center", marginBottom: Spacing.sm }}>AI Portfolio Analysis</ThemedText>
-          <ThemedText style={{ color: theme.textSecondary, textAlign: "center", marginBottom: Spacing.xl }}>
-            Get analysis from multiple AI models side by side. Each model provides its own independent assessment.
+      <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginBottom: Spacing.lg }]} onPress={runPortfolioAnalysis} disabled={loading}>
+        <Feather name="zap" size={18} color={Palette.black} />
+        <ThemedText style={styles.buttonText}>
+          {portfolioResults.length > 0 ? "Re-analyze with All AI Models" : "Analyze with All AI Models"}
+        </ThemedText>
+      </TouchableOpacity>
+      {portfolioResults.length > 0 && (
+        <View style={styles.secHdr}>
+          <View style={[styles.secDot, { backgroundColor: "#1565C0" }]} />
+          <ThemedText style={[styles.secLabel, { color: theme.textSecondary }]}>
+            MODEL VERDICTS · {portfolioResults.length}
           </ThemedText>
-          <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={runPortfolioAnalysis}>
-            <Feather name="zap" size={18} color="#FFF" />
-            <ThemedText style={styles.buttonText}>Analyze with All AI Models</ThemedText>
-          </TouchableOpacity>
-        </Card>
+          <View style={[styles.secLine, { backgroundColor: theme.divider }]} />
+        </View>
       )}
       {renderResults(portfolioResults, "portfolio")}
-      {portfolioResults.length > 0 && !loading && (
-        <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: Spacing.md }]} onPress={runPortfolioAnalysis}>
-          <Feather name="refresh-cw" size={18} color="#FFF" />
-          <ThemedText style={styles.buttonText}>Re-analyze</ThemedText>
-        </TouchableOpacity>
-      )}
     </View>
   );
+
+  // Per-tab hero text — handoff renders this above seg tabs on every tab.
+  const renderActiveHero = () => {
+    const HERO: Record<AITab, { title: string; sub: string }> = {
+      portfolio: {
+        title: "Portfolio Analysis",
+        sub: "Get analysis from multiple AI models side by side. Each model provides its own independent assessment.",
+      },
+      compare: {
+        title: "Compare Stocks",
+        sub: "Select 2-3 stocks. All AI models will analyze and compare them.",
+      },
+      deploy: {
+        title: "Deploy Capital",
+        sub: "Enter the amount and get recommendations from all AI models.",
+      },
+      behavior: {
+        title: "Your Investing Behavior",
+        sub: "Get insights on your patterns, improvement areas, and one thing to change.",
+      },
+      swing: {
+        title: "Swing Trade Ideas",
+        sub: "Analyst + critic pipeline over 2-8 week horizons. Entry, stop, target grounded in price + RAG.",
+      },
+    };
+    const h = HERO[activeTab];
+    return (
+      <LinearGradient
+        colors={["#111112", "#1A1A1C"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.aiHero}
+      >
+        <View style={styles.aiHeroGoldGlow} />
+        <ThemedText style={styles.aiHeroTitle}>{h.title}</ThemedText>
+        <ThemedText style={styles.aiHeroSub}>{h.sub}</ThemedText>
+      </LinearGradient>
+    );
+  };
 
   // ─── Compare Tab ───
   const renderCompare = () => (
@@ -838,7 +930,7 @@ export default function AIScreen() {
           value={compareAmount} onChangeText={setCompareAmount} keyboardType="numeric"
         />
         <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: Spacing.lg }]} onPress={runCompare} disabled={loading}>
-          <Feather name="zap" size={18} color="#FFF" />
+          <Feather name="zap" size={18} color={Palette.black} />
           <ThemedText style={styles.buttonText}>Compare with All AI Models</ThemedText>
         </TouchableOpacity>
       </Card>
@@ -893,14 +985,14 @@ export default function AIScreen() {
           value={deployAmount} onChangeText={setDeployAmount} keyboardType="numeric"
         />
         <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: Spacing.lg }]} onPress={runDeploy} disabled={loading}>
-          <Feather name="zap" size={18} color="#FFF" />
+          <Feather name="zap" size={18} color={Palette.black} />
           <ThemedText style={styles.buttonText}>Get All Recommendations</ThemedText>
         </TouchableOpacity>
       </Card>
       {renderResults(deployResults, "deploy")}
       {deployResults.length > 0 && !loading && (
         <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: Spacing.md }]} onPress={runDeploy}>
-          <Feather name="refresh-cw" size={18} color="#FFF" />
+          <Feather name="refresh-cw" size={18} color={Palette.black} />
           <ThemedText style={styles.buttonText}>Re-analyze</ThemedText>
         </TouchableOpacity>
       )}
@@ -918,7 +1010,7 @@ export default function AIScreen() {
             Get insights on your patterns, improvement areas, and one thing to change. Uses your holdings, transactions, dividends, and realized gains.
           </ThemedText>
           <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={runBehaviorAnalysis} disabled={loading}>
-            <Feather name="zap" size={18} color="#FFF" />
+            <Feather name="zap" size={18} color={Palette.black} />
             <ThemedText style={styles.buttonText}>Analyze with All AI Models</ThemedText>
           </TouchableOpacity>
         </Card>
@@ -926,9 +1018,298 @@ export default function AIScreen() {
       {renderResults(behaviorResults, "behavior")}
       {behaviorResults.length > 0 && !loading && (
         <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: Spacing.md }]} onPress={runBehaviorAnalysis}>
-          <Feather name="refresh-cw" size={18} color="#FFF" />
+          <Feather name="refresh-cw" size={18} color={Palette.black} />
           <ThemedText style={styles.buttonText}>Re-analyze</ThemedText>
         </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  // ─── Swing Tab ─── analyst + critic pipeline per symbol
+  const runSwingAnalysis = async (symbolOverride?: string) => {
+    const sym = (symbolOverride ?? swingSymbol).trim().toUpperCase();
+    if (!sym) {
+      setSwingError("Enter a symbol first");
+      return;
+    }
+    setSwingError(null);
+    setSwingLoading(true);
+    setSwingResult(null);
+    try {
+      const resp = await apiRequest("GET", `/api/swing/${sym}`);
+      const data = (await resp.json()) as SwingAnalysisResult;
+      if ((data as any).error) {
+        setSwingError((data as any).error);
+      } else {
+        setSwingResult(data);
+        setSwingSymbol(sym);
+      }
+    } catch (e: any) {
+      setSwingError(e?.message || "Request failed");
+    } finally {
+      setSwingLoading(false);
+    }
+  };
+
+  const verdictColor = (v: string) => {
+    if (v === "BUY_NOW") return Palette.gold;
+    if (v === "AVOID") return Palette.whisperRed ?? "#FF6B6B";
+    return Palette.black400;
+  };
+
+  const fmt = (n: number | null | undefined, d = 2) =>
+    n == null || !isFinite(n) ? "—" : n.toFixed(d);
+
+  const renderSwing = () => (
+    <View>
+      {/* Ticker picker: input + suggested chips from holdings */}
+      <Card style={styles.card}>
+        <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>Pick a ticker</ThemedText>
+        <View style={styles.chipRow}>
+          {holdings.slice(0, 8).map((h) => (
+            <TouchableOpacity
+              key={h.symbol}
+              onPress={() => setSwingSymbol(h.symbol)}
+              style={[
+                styles.symbolChip,
+                {
+                  backgroundColor: swingSymbol === h.symbol ? Palette.gold : theme.backgroundSecondary,
+                  borderWidth: 1,
+                  borderColor: swingSymbol === h.symbol ? Palette.goldDeep : theme.divider,
+                },
+              ]}
+            >
+              <ThemedText
+                style={{
+                  color: swingSymbol === h.symbol ? Palette.black : theme.text,
+                  fontWeight: "700",
+                }}
+              >
+                {h.symbol}
+              </ThemedText>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TextInput
+          style={[
+            styles.input,
+            {
+              backgroundColor: theme.backgroundSecondary,
+              color: theme.text,
+              borderColor: theme.divider,
+              marginTop: Spacing.md,
+            },
+          ]}
+          placeholder="Or type a symbol (e.g. OLFI)"
+          placeholderTextColor={theme.textSecondary}
+          value={swingSymbol}
+          onChangeText={(t) => setSwingSymbol(t.toUpperCase())}
+          autoCapitalize="characters"
+        />
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: theme.primary, marginTop: Spacing.lg }]}
+          onPress={() => runSwingAnalysis()}
+          disabled={swingLoading}
+        >
+          <Feather name="zap" size={18} color={Palette.black} />
+          <ThemedText style={styles.buttonText}>
+            {swingLoading ? "Analysing…" : "Run Swing Analysis"}
+          </ThemedText>
+        </TouchableOpacity>
+        {swingError && (
+          <ThemedText style={{ color: Palette.whisperRed ?? "#FF6B6B", marginTop: Spacing.md, fontSize: 13 }}>
+            {swingError}
+          </ThemedText>
+        )}
+      </Card>
+
+      {swingLoading && (
+        <Card style={styles.card}>
+          <ActivityIndicator size="large" color={theme.primary} style={{ marginVertical: Spacing.lg }} />
+          <ThemedText style={{ textAlign: "center", color: theme.textSecondary }}>
+            Running analyst + critic pipeline. Usually 25–40s.
+          </ThemedText>
+        </Card>
+      )}
+
+      {swingResult && !swingLoading && (
+        <>
+          {/* Verdict header card */}
+          <Card style={[styles.card, { borderLeftWidth: 4, borderLeftColor: verdictColor(swingResult.finalVerdict) }]}>
+            <View style={styles.row}>
+              <View>
+                <ThemedText style={{ fontSize: 11, color: theme.textSecondary, letterSpacing: 1 }}>
+                  {swingResult.symbol} · {swingResult.recommendation.timeframeWeeks}w horizon
+                </ThemedText>
+                <ThemedText type="h3" style={{ color: verdictColor(swingResult.finalVerdict), marginTop: 2 }}>
+                  {swingResult.finalVerdict.replace("_", " ")}
+                </ThemedText>
+              </View>
+              <View style={[styles.badge, { backgroundColor: verdictColor(swingResult.finalVerdict) + "22" }]}>
+                <ThemedText style={[styles.badgeText, { color: verdictColor(swingResult.finalVerdict) }]}>
+                  {swingResult.adjustedConfidence}
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText style={{ marginTop: Spacing.md, lineHeight: 20, color: theme.textSecondary }}>
+              {swingResult.recommendation.reasoning}
+            </ThemedText>
+          </Card>
+
+          {/* Entry / Stop / Target grid */}
+          {swingResult.recommendation.entryRange && (
+            <Card style={styles.card}>
+              <ThemedText style={styles.resultHeader}>TRADE PLAN</ThemedText>
+              <View style={{ flexDirection: "row", gap: Spacing.md, marginTop: Spacing.sm }}>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>ENTRY</ThemedText>
+                  <ThemedText type="h4" style={{ fontFamily: "monospace" }}>
+                    {fmt(swingResult.recommendation.entryRange.low)}–{fmt(swingResult.recommendation.entryRange.high)}
+                  </ThemedText>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>STOP</ThemedText>
+                  <ThemedText type="h4" style={{ fontFamily: "monospace", color: Palette.whisperRed ?? "#FF6B6B" }}>
+                    {fmt(swingResult.recommendation.stopLoss)}
+                  </ThemedText>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>TARGET</ThemedText>
+                  <ThemedText type="h4" style={{ fontFamily: "monospace", color: Palette.gold }}>
+                    {fmt(swingResult.recommendation.targetPrice)}
+                  </ThemedText>
+                </View>
+              </View>
+            </Card>
+          )}
+
+          {/* Technicals card */}
+          <Card style={styles.card}>
+            <ThemedText style={styles.resultHeader}>TECHNICALS (as of {swingResult.technicals.asOf})</ThemedText>
+            <View style={{ marginTop: Spacing.sm, gap: 6 }}>
+              <View style={styles.row}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Price</ThemedText>
+                <ThemedText style={{ fontFamily: "monospace" }}>EGP {fmt(swingResult.technicals.currentPrice)}</ThemedText>
+              </View>
+              <View style={styles.row}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>20d / 50d SMA</ThemedText>
+                <ThemedText style={{ fontFamily: "monospace" }}>
+                  {fmt(swingResult.technicals.sma20)} / {fmt(swingResult.technicals.sma50)}
+                </ThemedText>
+              </View>
+              <View style={styles.row}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Dist from 50d SMA</ThemedText>
+                <ThemedText style={{ fontFamily: "monospace" }}>{fmt(swingResult.technicals.distanceFromSma50Pct)}%</ThemedText>
+              </View>
+              <View style={styles.row}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>20d momentum</ThemedText>
+                <ThemedText style={{ fontFamily: "monospace" }}>{fmt(swingResult.technicals.momentum20dPct)}%</ThemedText>
+              </View>
+              <View style={styles.row}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>52w range position</ThemedText>
+                <ThemedText style={{ fontFamily: "monospace" }}>{fmt(swingResult.technicals.rangePositionPct, 1)}%</ThemedText>
+              </View>
+              <View style={styles.row}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Realized vol (ann.)</ThemedText>
+                <ThemedText style={{ fontFamily: "monospace" }}>{fmt(swingResult.technicals.realizedVol20dPct)}%</ThemedText>
+              </View>
+              <View style={styles.row}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Volume vs 20d avg</ThemedText>
+                <ThemedText style={{ fontFamily: "monospace" }}>{fmt(swingResult.technicals.recentVolumeMultiple, 2)}×</ThemedText>
+              </View>
+            </View>
+          </Card>
+
+          {/* Technical signals */}
+          {swingResult.recommendation.technicalSignals.length > 0 && (
+            <Card style={styles.card}>
+              <ThemedText style={styles.resultHeader}>TECHNICAL SIGNALS</ThemedText>
+              {swingResult.recommendation.technicalSignals.map((s, i) => (
+                <View key={i} style={styles.bulletRow}>
+                  <ThemedText style={{ color: theme.primary, fontSize: 14 }}>●</ThemedText>
+                  <ThemedText type="small" style={styles.bulletText}>{s}</ThemedText>
+                </View>
+              ))}
+            </Card>
+          )}
+
+          {/* Fundamental catalysts */}
+          {swingResult.recommendation.fundamentalCatalysts.length > 0 && (
+            <Card style={styles.card}>
+              <ThemedText style={styles.resultHeader}>FUNDAMENTAL CATALYSTS</ThemedText>
+              {swingResult.recommendation.fundamentalCatalysts.map((c, i) => (
+                <View key={i} style={styles.bulletRow}>
+                  <ThemedText style={{ color: Palette.gold, fontSize: 14 }}>▸</ThemedText>
+                  <ThemedText type="small" style={styles.bulletText}>{c}</ThemedText>
+                </View>
+              ))}
+            </Card>
+          )}
+
+          {/* Risks */}
+          {swingResult.recommendation.risks.length > 0 && (
+            <Card style={styles.card}>
+              <ThemedText style={styles.resultHeader}>RISKS</ThemedText>
+              {swingResult.recommendation.risks.map((r, i) => (
+                <View key={i} style={styles.bulletRow}>
+                  <ThemedText style={{ color: Palette.whisperRed ?? "#FF6B6B", fontSize: 14 }}>●</ThemedText>
+                  <ThemedText type="small" style={styles.bulletText}>{r}</ThemedText>
+                </View>
+              ))}
+            </Card>
+          )}
+
+          {/* Critic feedback (if present) */}
+          {swingResult.criticFeedback && (
+            <Card style={[styles.card, { borderLeftWidth: 4, borderLeftColor: Palette.gold400 ?? Palette.gold }]}>
+              <ThemedText style={styles.resultHeader}>
+                CRITIC · {swingResult.criticFeedback.severity.toUpperCase()} SEVERITY
+              </ThemedText>
+              <ThemedText style={{ fontWeight: "700", marginTop: Spacing.sm }}>
+                Counter: {swingResult.criticFeedback.counterVerdict.replace("_", " ")}
+              </ThemedText>
+              <ThemedText style={{ color: theme.textSecondary, marginTop: Spacing.sm, lineHeight: 20 }}>
+                {swingResult.criticFeedback.weakness}
+              </ThemedText>
+              <ThemedText style={{ color: theme.textSecondary, marginTop: Spacing.sm, lineHeight: 20, fontStyle: "italic" }}>
+                {swingResult.criticFeedback.counterScenario}
+              </ThemedText>
+              {swingResult.criticFeedback.blockingIssues.length > 0 && (
+                <View style={{ marginTop: Spacing.md }}>
+                  {swingResult.criticFeedback.blockingIssues.map((b, i) => (
+                    <View key={i} style={styles.bulletRow}>
+                      <Feather name="alert-triangle" size={12} color={Palette.gold} />
+                      <ThemedText type="small" style={styles.bulletText}>{b}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </Card>
+          )}
+
+          {/* Citations */}
+          {swingResult.recommendation.citations.length > 0 && (
+            <Card style={styles.card}>
+              <ThemedText style={styles.resultHeader}>CITATIONS</ThemedText>
+              {swingResult.recommendation.citations.map((c, i) => (
+                <View key={i} style={{ marginTop: Spacing.sm }}>
+                  <ThemedText style={{ fontSize: 11, fontWeight: "700", color: Palette.gold, letterSpacing: 0.5 }}>
+                    {c.source}
+                  </ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary, lineHeight: 18, marginTop: 2 }}>
+                    "{c.snippet}"
+                  </ThemedText>
+                </View>
+              ))}
+            </Card>
+          )}
+
+          <ThemedText
+            style={{ fontSize: 11, color: theme.textSecondary, textAlign: "center", marginTop: Spacing.md }}
+          >
+            {swingResult.model} · {swingResult.ragUsed ? "RAG-grounded" : "no RAG"} · {swingResult.elapsedMs}ms
+          </ThemedText>
+        </>
       )}
     </View>
   );
@@ -937,11 +1318,22 @@ export default function AIScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingTop: Spacing.md, paddingBottom: tabBarHeight + Spacing.xl, paddingHorizontal: Spacing.lg }}
+        contentContainerStyle={{ paddingTop: insets.top + Spacing.md, paddingBottom: tabBarHeight + Spacing.xl, paddingHorizontal: Spacing.lg }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
       >
+        <View style={styles.titleBar}>
+          <View style={{ flex: 1 }}>
+            <ThemedText style={styles.screenTitle}>AI Analysis</ThemedText>
+            <ThemedText style={[styles.screenSubtitle, { color: theme.textSecondary }]}>
+              5 models · side-by-side
+            </ThemedText>
+          </View>
+          <Feather name="settings" size={20} color={theme.textSecondary} />
+        </View>
+        {renderActiveHero()}
         {renderTabs()}
         {activeTab === "portfolio" && renderPortfolio()}
+        {activeTab === "swing" && renderSwing()}
         {activeTab === "compare" && renderCompare()}
         {activeTab === "deploy" && renderDeploy()}
         {activeTab === "behavior" && renderBehavior()}
@@ -953,6 +1345,74 @@ export default function AIScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
+  titleBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingBottom: 10,
+    gap: 12,
+  },
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  screenSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  aiHero: {
+    backgroundColor: "#111112",
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(212,168,90,0.20)",
+    overflow: "hidden",
+  },
+  aiHeroGoldGlow: {
+    position: "absolute",
+    top: -60,
+    right: -60,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "#D4A85A",
+    opacity: 0.08,
+  },
+  aiHeroTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: -0.2,
+    marginBottom: 4,
+  },
+  aiHeroSub: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.75)",
+    lineHeight: 17,
+  },
+  secHdr: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  secDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 9999,
+  },
+  secLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  secLine: {
+    flex: 1,
+    height: 1,
+  },
   tabBar: { flexDirection: "row", borderRadius: BorderRadius.lg, padding: 3, marginBottom: Spacing.lg, borderWidth: 1 },
   tabItem: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: Spacing.sm, borderRadius: BorderRadius.md, gap: 4 },
   tabLabel: { fontSize: 12, fontWeight: "600" },
@@ -970,8 +1430,9 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: BorderRadius.full },
   bulletRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: Spacing.xs, gap: Spacing.sm },
   bulletText: { flex: 1, lineHeight: 20 },
-  button: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: Spacing.md, borderRadius: BorderRadius.lg, gap: Spacing.sm },
-  buttonText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
+  button: { flexDirection: "row", alignItems: "center", justifyContent: "center", height: 48, borderRadius: 9999, gap: Spacing.sm },
+  buttonText: { color: Palette.black, fontWeight: "700", fontSize: 14 },
+  resultHeader: { fontSize: 10, fontWeight: "700", letterSpacing: 1.4, opacity: 0.75, textTransform: "uppercase" },
   input: { height: Spacing.inputHeight, borderWidth: 1, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.lg, fontSize: 15 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.sm },
   symbolChip: { flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: BorderRadius.full },

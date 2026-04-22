@@ -19,7 +19,7 @@ export default function PortfolioStackNavigator() {
         name="Portfolio"
         component={PortfolioScreen}
         options={{
-          headerTitle: () => <HeaderTitle title="EGX Portfolio" />,
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

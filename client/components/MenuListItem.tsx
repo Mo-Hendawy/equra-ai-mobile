@@ -10,7 +10,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, NunitoFont } from "@/constants/theme";
 
 interface MenuListItemProps {
   icon: keyof typeof Feather.glyphMap;
@@ -20,6 +20,9 @@ interface MenuListItemProps {
   iconColor?: string;
   showChevron?: boolean;
   rightContent?: React.ReactNode;
+  // When true, suppresses the bottom divider — use for the last row in a
+  // grouped card. Defaults to false so rows stack cleanly inside a group.
+  isLast?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -32,6 +35,7 @@ export function MenuListItem({
   iconColor,
   showChevron = true,
   rightContent,
+  isLast = false,
 }: MenuListItemProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
@@ -41,17 +45,17 @@ export function MenuListItem({
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.98, { damping: 15, stiffness: 150 });
+    scale.value = withSpring(0.99, { damping: 15, stiffness: 150 });
   };
-
   const handlePressOut = () => {
     scale.value = withSpring(1, { damping: 15, stiffness: 150 });
   };
-
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   };
+
+  const tintColor = iconColor || theme.primary;
 
   return (
     <AnimatedPressable
@@ -59,24 +63,31 @@ export function MenuListItem({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       style={[
-        styles.container,
-        { backgroundColor: theme.backgroundDefault },
+        styles.row,
+        {
+          borderBottomColor: theme.divider,
+          borderBottomWidth: isLast ? 0 : 1,
+        },
         animatedStyle,
       ]}
     >
       <View
         style={[
-          styles.iconContainer,
-          { backgroundColor: (iconColor || theme.primary) + "15" },
+          styles.iconTile,
+          { backgroundColor: tintColor + "22" },
         ]}
       >
-        <Feather name={icon} size={20} color={iconColor || theme.primary} />
+        <Feather name={icon} size={18} color={tintColor} strokeWidth={2} />
       </View>
 
       <View style={styles.content}>
-        <ThemedText style={styles.title}>{title}</ThemedText>
+        <ThemedText style={[styles.title, { color: theme.text }]}>
+          {title}
+        </ThemedText>
         {subtitle ? (
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+          <ThemedText
+            style={[styles.subtitle, { color: theme.textSecondary }]}
+          >
             {subtitle}
           </ThemedText>
         ) : null}
@@ -87,7 +98,7 @@ export function MenuListItem({
       {showChevron ? (
         <Feather
           name="chevron-right"
-          size={20}
+          size={18}
           color={theme.textSecondary}
           style={styles.chevron}
         />
@@ -97,30 +108,36 @@ export function MenuListItem({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  iconTile: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: Spacing.md,
+    marginRight: 12,
   },
   content: {
     flex: 1,
   },
   title: {
+    fontSize: 15,
+    fontFamily: NunitoFont.medium,
     fontWeight: "500",
-    marginBottom: 2,
+  },
+  subtitle: {
+    fontSize: 12,
+    fontFamily: NunitoFont.regular,
+    marginTop: 2,
+    lineHeight: 16,
   },
   chevron: {
     opacity: 0.5,
-    marginLeft: Spacing.sm,
+    marginLeft: 8,
   },
 });

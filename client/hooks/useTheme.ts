@@ -1,13 +1,10 @@
 import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/useColorScheme";
 
+// Black / gold / white palette is dark-first. Force dark regardless of
+// system appearance so every screen renders against the near-black canvas.
 export function useTheme() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const theme = Colors[colorScheme ?? "light"];
-
   return {
-    theme,
-    isDark,
+    theme: Colors.dark,
+    isDark: true,
   };
 }

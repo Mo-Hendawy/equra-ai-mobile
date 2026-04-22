@@ -48,7 +48,8 @@
           "color": "#1B5E20",
           "defaultChannel": "dividend-calendar"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "reactCompiler": true

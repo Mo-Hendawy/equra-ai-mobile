@@ -6,6 +6,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
+import {
+  useFonts,
+  Nunito_400Regular,
+  Nunito_500Medium,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+  Nunito_800ExtraBold,
+  Nunito_900Black,
+} from "@expo-google-fonts/nunito";
+import { Palette } from "@/constants/theme"; // used below for splash BG
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
@@ -42,6 +52,15 @@ const APP_VERSION = "2.0.9"; // Increment this to trigger auto-reset
 
 export default function App() {
   const [loading, setLoading] = useState(true);
+
+  const [fontsLoaded] = useFonts({
+    Nunito_400Regular,
+    Nunito_500Medium,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+    Nunito_900Black,
+  });
 
   useEffect(() => {
     const checkAndResetIfNeeded = async () => {
@@ -91,11 +110,11 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
-  if (loading) {
+  if (loading || !fontsLoaded) {
     return (
-      <View style={[styles.root, { justifyContent: "center", alignItems: "center", backgroundColor: "#1B5E20" }]}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
-        <ThemedText style={{ color: "#FFFFFF", marginTop: 16 }}>Loading Equra AI...</ThemedText>
+      <View style={[styles.root, { justifyContent: "center", alignItems: "center", backgroundColor: Palette.black }]}>
+        <ActivityIndicator size="large" color={Palette.gold} />
+        <ThemedText style={{ color: Palette.gold, marginTop: 16, letterSpacing: -0.3 }}>Loading Equra AI…</ThemedText>
       </View>
     );
   }
@@ -106,7 +125,7 @@ export default function App() {
         <SafeAreaProvider>
           <GestureHandlerRootView style={styles.root}>
             <NavigationContainer ref={navigationRef}>
-              <StatusBar style="auto" />
+              <StatusBar style="light" />
               <RootStackNavigator />
             </NavigationContainer>
           </GestureHandlerRootView>

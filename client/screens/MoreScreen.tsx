@@ -1,215 +1,124 @@
-import React, { useState, useCallback } from "react";
-import { View, ScrollView, StyleSheet, Image } from "react-native";
+import React from "react";
+import { View, ScrollView, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useNavigation, useFocusEffect, DrawerActions } from "@react-navigation/native";
-import { Alert } from "react-native";
-import { registerForPushNotifications } from "@/lib/push-notifications";
+import { useNavigation, DrawerActions } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
 import { MenuListItem } from "@/components/MenuListItem";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Typography } from "@/constants/theme";
-import {
-  holdingsStorage,
-  certificatesStorage,
-  realizedGainsStorage,
-  watchlistStorage,
-} from "@/lib/storage";
+import { Spacing, NunitoFont, Palette } from "@/constants/theme";
 import type { MoreStackParamList } from "@/navigation/MoreStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList>;
 
+function SectionHeader({ color, children }: { color: string; children: string }) {
+  const { theme } = useTheme();
+  return (
+    <View style={styles.secHdr}>
+      <View style={[styles.secDot, { backgroundColor: color }]} />
+      <ThemedText style={[styles.secLabel, { color: theme.textSecondary }]}>
+        {children}
+      </ThemedText>
+      <View style={[styles.secLine, { backgroundColor: theme.divider }]} />
+    </View>
+  );
+}
+
 export default function MoreScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
 
-  const [stats, setStats] = useState({
-    holdings: 0,
-    certificates: 0,
-    watchlist: 0,
-    realizedGains: 0,
-  });
-
-  const loadStats = useCallback(async () => {
-    try {
-      const [holdings, certificates, watchlist, realizedGains] = await Promise.all([
-        holdingsStorage.getAll(),
-        certificatesStorage.getAll(),
-        watchlistStorage.getAll(),
-        realizedGainsStorage.getAll(),
-      ]);
-      setStats({
-        holdings: holdings.length,
-        certificates: certificates.length,
-        watchlist: watchlist.length,
-        realizedGains: realizedGains.length,
-      });
-    } catch (error) {
-      console.error("Failed to load stats:", error);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadStats();
-    }, [loadStats])
-  );
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-EG", {
-      style: "currency",
-      currency: "EGP",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+  const group = {
+    backgroundColor: theme.backgroundDefault,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.cardBorder,
+    overflow: "hidden" as const,
+    marginBottom: 12,
   };
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
-        paddingTop: Spacing.xl,
+        paddingTop: insets.top + Spacing.md,
         paddingBottom: tabBarHeight + Spacing.xl,
         paddingHorizontal: Spacing.lg,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
     >
-      <Card style={styles.profileCard}>
-        <View style={styles.profileContent}>
-          <Image
-            source={require("../../assets/images/icon.png")}
-            style={styles.avatar}
-            resizeMode="contain"
-          />
-          <View style={styles.profileInfo}>
-            <ThemedText type="h4">EGX Portfolio</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              Investment Tracker
-            </ThemedText>
-          </View>
-        </View>
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <ThemedText style={[styles.statValue, { color: theme.primary }]}>
-              {stats.holdings}
-            </ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              Holdings
-            </ThemedText>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: theme.divider }]} />
-          <View style={styles.statItem}>
-            <ThemedText style={[styles.statValue, { color: theme.primary }]}>
-              {stats.certificates}
-            </ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              Certificates
-            </ThemedText>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: theme.divider }]} />
-          <View style={styles.statItem}>
-            <ThemedText style={[styles.statValue, { color: theme.primary }]}>
-              {stats.watchlist}
-            </ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              Watching
-            </ThemedText>
-          </View>
-        </View>
-      </Card>
+      <View style={styles.titleBar}>
+        <ThemedText style={styles.screenTitle}>More</ThemedText>
+      </View>
 
-      <ThemedText type="small" style={styles.sectionTitle}>
-        FEATURES
-      </ThemedText>
+      {/* ── Features ── */}
+      <SectionHeader color={Palette.gold}>FEATURES</SectionHeader>
+      <View style={group}>
+        <MenuListItem
+          icon="book-open"
+          title="Investment Playbook"
+          subtitle="Your trading rules — swipe left edge to access"
+          onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+          iconColor={Palette.gold}
+        />
+        <MenuListItem
+          icon="eye"
+          title="Watchlist"
+          subtitle="Track symbols you don't own yet"
+          iconColor={Palette.gold900}
+          onPress={() => navigation.navigate("Watchlist")}
+        />
+        <MenuListItem
+          icon="target"
+          title="Targets"
+          subtitle="Portfolio allocation goals"
+          iconColor={Palette.gold400}
+          onPress={() => navigation.navigate("Targets")}
+        />
+        <MenuListItem
+          icon="trending-up"
+          title="Realized Gains"
+          subtitle="Booked P/L across closed positions"
+          iconColor={Palette.goldDeep}
+          onPress={() => navigation.navigate("RealizedGains")}
+          isLast
+        />
+      </View>
 
-      <MenuListItem
-        icon="book-open"
-        title="Investment Playbook"
-        subtitle="Your trading rules — swipe left edge to access"
-        onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-        iconColor="#1B5E20"
-      />
+      {/* ── Data ── */}
+      <SectionHeader color={Palette.gold900}>DATA</SectionHeader>
+      <View style={group}>
+        <MenuListItem
+          icon="mail"
+          title="Thndr Imports"
+          subtitle="Review trades forwarded from Thndr"
+          iconColor={Palette.gold}
+          onPress={() => navigation.navigate("ThndrImports")}
+        />
+        <MenuListItem
+          icon="download-cloud"
+          title="Backup & Restore"
+          subtitle="Export or load portfolio JSON"
+          iconColor={Palette.gold400}
+          onPress={() => navigation.navigate("BackupRestore")}
+        />
+        <MenuListItem
+          icon="refresh-cw"
+          title="Reset Portfolio"
+          subtitle="Clear and reload stock holdings"
+          iconColor={Palette.black400}
+          onPress={() => navigation.navigate("ResetPortfolio")}
+          isLast
+        />
+      </View>
 
-      <MenuListItem
-        icon="bell"
-        title="Re-register notifications"
-        subtitle="Re-send push token if you stopped getting alerts"
-        iconColor="#F57C00"
-        onPress={async () => {
-          const token = await registerForPushNotifications({ force: true });
-          if (token) {
-            Alert.alert("Registered", `Token sent to backend:\n${token.slice(0, 40)}…`);
-          } else {
-            Alert.alert(
-              "Not registered",
-              "Could not get a push token. Check permissions in device settings."
-            );
-          }
-        }}
-      />
-
-      <MenuListItem
-        icon="eye"
-        title="Watchlist"
-        subtitle="Stocks you're monitoring"
-        onPress={() => navigation.navigate("Watchlist")}
-      />
-
-      <MenuListItem
-        icon="target"
-        title="Targets"
-        subtitle="Portfolio allocation goals"
-        onPress={() => navigation.navigate("Targets")}
-        iconColor="#7B1FA2"
-      />
-
-      <MenuListItem
-        icon="trending-up"
-        title="Realized Gains"
-        subtitle="Profits from sold positions"
-        onPress={() => navigation.navigate("RealizedGains")}
-        iconColor="#2E7D32"
-      />
-
-      <MenuListItem
-        icon="mail"
-        title="Thndr Imports"
-        subtitle="Review trades forwarded from Thndr"
-        onPress={() => navigation.navigate("ThndrImports")}
-        iconColor="#FF6F00"
-      />
-
-      <ThemedText type="small" style={styles.sectionTitle}>
-        DATA
-      </ThemedText>
-
-      <MenuListItem
-        icon="download-cloud"
-        title="Backup & Restore"
-        subtitle="Export or import your data"
-        onPress={() => navigation.navigate("BackupRestore")}
-        iconColor="#1565C0"
-      />
-
-      <MenuListItem
-        icon="refresh-cw"
-        title="Reset Portfolio"
-        subtitle="Clear and reload stock holdings"
-        onPress={() => navigation.navigate("ResetPortfolio")}
-        iconColor="#C62828"
-      />
-
-      <ThemedText type="small" style={styles.sectionTitle}>
-        ABOUT
-      </ThemedText>
-
+      {/* ── About ── */}
+      <SectionHeader color={Palette.black400}>ABOUT</SectionHeader>
       <Card style={styles.aboutCard}>
         <ThemedText type="small" style={{ color: theme.textSecondary }}>
           EGX Portfolio Tracker helps you manage and analyze your Egyptian Stock
@@ -230,6 +139,15 @@ export default function MoreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  titleBar: {
+    paddingBottom: 10,
+  },
+  screenTitle: {
+    fontSize: 28,
+    fontFamily: NunitoFont.bold,
+    fontWeight: "700",
+    letterSpacing: -0.3,
   },
   profileCard: {
     marginBottom: Spacing.xl,
@@ -265,19 +183,36 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 20,
+    fontFamily: NunitoFont.bold,
     fontWeight: "700",
     marginBottom: Spacing.xs,
   },
-  sectionTitle: {
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.md,
-    marginLeft: Spacing.sm,
-    fontWeight: "600",
-    letterSpacing: 0.5,
-    opacity: 0.6,
+  secHdr: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: Spacing.sm,
+    marginBottom: 10,
+    marginHorizontal: 2,
+  },
+  secDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 9999,
+  },
+  secLabel: {
+    fontSize: 11,
+    fontFamily: NunitoFont.bold,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  secLine: {
+    flex: 1,
+    height: 1,
   },
   aboutCard: {
-    marginTop: Spacing.sm,
+    marginTop: 0,
   },
   version: {
     marginTop: Spacing.md,

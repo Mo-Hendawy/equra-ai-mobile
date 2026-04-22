@@ -11,6 +11,7 @@ import DraggableFlatList, {
   ScaleDecorator,
   RenderItemParams,
 } from "react-native-draggable-flatlist";
+import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -29,7 +30,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { holdingsStorage } from "@/lib/storage";
 import { apiRequest } from "@/lib/query-client";
-import { STOCK_STATUSES } from "@/constants/egxStocks";
+import { STOCK_ROLES } from "@/constants/egxStocks";
 import type { PortfolioHolding } from "@/types";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -152,17 +153,19 @@ export default function PortfolioScreen() {
     return { totalValue, totalCost, totalPL, totalPLPercent, holdingsCount: holdings.length };
   }, [holdings]);
 
+  // Group holdings by ROLE (Core / Growth / Speculative / Income / Swing) —
+  // matches the Claude Design handoff Portfolio mockup pattern.
   const groupedHoldings = useMemo(() => {
     const groups: { status: string; label: string; color: string; holdings: PortfolioHolding[] }[] =
       [];
-    STOCK_STATUSES.forEach((status) => {
-      const statusHoldings = holdings.filter((h) => h.status === status.id);
-      if (statusHoldings.length > 0) {
+    STOCK_ROLES.forEach((role) => {
+      const roleHoldings = holdings.filter((h) => h.role === role.id);
+      if (roleHoldings.length > 0) {
         groups.push({
-          status: status.id,
-          label: status.label,
-          color: status.color,
-          holdings: statusHoldings,
+          status: role.id,
+          label: role.label,
+          color: role.color,
+          holdings: roleHoldings,
         });
       }
     });
@@ -260,22 +263,14 @@ export default function PortfolioScreen() {
     </View>
   );
 
-  // ── List header ───────────────────────────────────────────────────
+  // ── List header (summary only; holdings render immediately below — handoff) ─
   const renderListHeader = () => (
-    <>
-      <SummaryCard
-        totalValue={summary.totalValue}
-        totalPL={summary.totalPL}
-        totalPLPercent={summary.totalPLPercent}
-        holdingsCount={summary.holdingsCount}
-      />
-      {renderInsightsPanel()}
-      <View style={styles.holdingsLabel}>
-        <ThemedText style={[styles.holdingsLabelText, { color: theme.textSecondary }]}>
-          Holdings
-        </ThemedText>
-      </View>
-    </>
+    <SummaryCard
+      totalValue={summary.totalValue}
+      totalPL={summary.totalPL}
+      totalPLPercent={summary.totalPLPercent}
+      holdingsCount={summary.holdingsCount}
+    />
   );
 
   // ── Flattened data ────────────────────────────────────────────────
@@ -291,11 +286,22 @@ export default function PortfolioScreen() {
   }, [groupedHoldings]);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top }]}>
+      <View style={styles.titleBar}>
+        <View style={{ flex: 1 }}>
+          <ThemedText style={styles.screenTitle}>Portfolio</ThemedText>
+          <ThemedText style={[styles.screenSubtitle, { color: theme.textSecondary }]}>
+            Last updated just now
+          </ThemedText>
+        </View>
+        <Pressable onPress={onRefresh} hitSlop={10}>
+          <Feather name="refresh-cw" size={20} color={theme.textSecondary} />
+        </Pressable>
+      </View>
       <DraggableFlatList<FlatItem>
         contentContainerStyle={[
           styles.listContent,
-          { paddingTop: Spacing.xl, paddingBottom: tabBarHeight + Spacing["4xl"] },
+          { paddingTop: Spacing.sm, paddingBottom: tabBarHeight + Spacing["4xl"] },
           holdings.length === 0 && styles.emptyListContent,
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -324,9 +330,9 @@ export default function PortfolioScreen() {
             const group = item.data;
             return (
               <View style={styles.sectionHeader}>
-                <View style={[styles.sectionDot, { backgroundColor: group.color }]} />
+                <View style={[styles.sectionDot, { backgroundColor: theme.primary }]} />
                 <ThemedText style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-                  {group.label}
+                  {group.label.toUpperCase()} · {group.holdings.length}
                 </ThemedText>
                 <View style={[styles.sectionLine, { backgroundColor: theme.divider }]} />
               </View>
@@ -352,6 +358,25 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   listContent: { paddingHorizontal: Spacing.lg },
   emptyListContent: { flexGrow: 1 },
+
+  // Screen title bar (matches handoff Portfolio .screen-title-bar)
+  titleBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: 4,
+    paddingBottom: 10,
+    gap: 12,
+  },
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  screenSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
 
   // Insights panel
   insightsContainer: {

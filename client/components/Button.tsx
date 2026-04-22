@@ -9,13 +9,14 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing } from "@/constants/theme";
+import { BorderRadius, NunitoFont, Spacing } from "@/constants/theme";
 
 interface ButtonProps {
   onPress?: () => void;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  variant?: "primary" | "secondary" | "destructive";
 }
 
 const springConfig: WithSpringConfig = {
@@ -33,6 +34,7 @@ export function Button({
   children,
   style,
   disabled = false,
+  variant = "primary",
 }: ButtonProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
@@ -42,16 +44,15 @@ export function Button({
   }));
 
   const handlePressIn = () => {
-    if (!disabled) {
-      scale.value = withSpring(0.98, springConfig);
-    }
+    if (!disabled) scale.value = withSpring(0.98, springConfig);
+  };
+  const handlePressOut = () => {
+    if (!disabled) scale.value = withSpring(1, springConfig);
   };
 
-  const handlePressOut = () => {
-    if (!disabled) {
-      scale.value = withSpring(1, springConfig);
-    }
-  };
+  const bg =
+    variant === "destructive" ? theme.error : variant === "secondary" ? theme.backgroundSecondary : theme.primary;
+  const fg = variant === "secondary" ? theme.text : theme.buttonText;
 
   return (
     <AnimatedPressable
@@ -62,17 +63,14 @@ export function Button({
       style={[
         styles.button,
         {
-          backgroundColor: theme.link,
+          backgroundColor: bg,
           opacity: disabled ? 0.5 : 1,
         },
         style,
         animatedStyle,
       ]}
     >
-      <ThemedText
-        type="body"
-        style={[styles.buttonText, { color: theme.buttonText }]}
-      >
+      <ThemedText style={[styles.buttonText, { color: fg }]}>
         {children}
       </ThemedText>
     </AnimatedPressable>
@@ -85,8 +83,12 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 24,
   },
   buttonText: {
+    fontSize: 15,
+    fontFamily: NunitoFont.semibold,
     fontWeight: "600",
+    letterSpacing: -0.1,
   },
 });

@@ -30,7 +30,7 @@ export default function MoreStackNavigator() {
         name="More"
         component={MoreScreen}
         options={{
-          headerTitle: "More",
+          headerShown: false,
         }}
       />
       <Stack.Screen

@@ -18,7 +18,7 @@ export default function AIStackNavigator() {
         name="AI"
         component={AIScreen}
         options={{
-          headerTitle: "AI Assistant",
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

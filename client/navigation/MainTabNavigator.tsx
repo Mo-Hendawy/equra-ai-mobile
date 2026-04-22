@@ -12,6 +12,7 @@ import DividendCalendarStackNavigator from "@/navigation/DividendCalendarStackNa
 import AIStackNavigator from "@/navigation/AIStackNavigator";
 import MoreStackNavigator from "@/navigation/MoreStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
+import { NunitoFont } from "@/constants/theme";
 
 export type MainTabParamList = {
   PortfolioTab: undefined;
@@ -34,11 +35,15 @@ export default function MainTabNavigator() {
       screenOptions={{
         tabBarActiveTintColor: theme.tabIconSelected,
         tabBarInactiveTintColor: theme.tabIconDefault,
+        tabBarLabelStyle: {
+          fontFamily: NunitoFont.semibold,
+          fontSize: 10,
+        },
         tabBarStyle: {
           position: "absolute",
           backgroundColor: Platform.select({
             ios: "transparent",
-            android: theme.backgroundRoot,
+            android: theme.backgroundDefault,
           }),
           borderTopWidth: 0,
           elevation: 0,
@@ -59,19 +64,7 @@ export default function MainTabNavigator() {
         component={PortfolioStackNavigator}
         options={{
           title: "Portfolio",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="briefcase" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="AnalyticsTab"
-        component={AnalyticsStackNavigator}
-        options={{
-          title: "Analytics",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="pie-chart" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Feather name="pie-chart" size={size} color={color} />,
         }}
       />
       <Tab.Screen
@@ -79,29 +72,7 @@ export default function MainTabNavigator() {
         component={TrackingStackNavigator}
         options={{
           title: "Tracking",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="layers" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="StockSearchTab"
-        component={StockSearchStackNavigator}
-        options={{
-          title: "Search",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="search" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="DividendCalendarTab"
-        component={DividendCalendarStackNavigator}
-        options={{
-          title: "Calendar",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="calendar" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Feather name="list" size={size} color={color} />,
         }}
       />
       <Tab.Screen
@@ -109,9 +80,33 @@ export default function MainTabNavigator() {
         component={AIStackNavigator}
         options={{
           title: "AI",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="cpu" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Feather name="cpu" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="AnalyticsTab"
+        component={AnalyticsStackNavigator}
+        options={{
+          title: "Analytics",
+          tabBarIcon: ({ color, size }) => <Feather name="bar-chart-2" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="StockSearchTab"
+        component={StockSearchStackNavigator}
+        options={{
+          title: "Search",
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: "none" },
+        }}
+      />
+      <Tab.Screen
+        name="DividendCalendarTab"
+        component={DividendCalendarStackNavigator}
+        options={{
+          title: "Calendar",
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: "none" },
         }}
       />
       <Tab.Screen
@@ -119,9 +114,7 @@ export default function MainTabNavigator() {
         component={MoreStackNavigator}
         options={{
           title: "More",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="menu" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Feather name="more-horizontal" size={size} color={color} />,
         }}
       />
     </Tab.Navigator>

@@ -102,12 +102,13 @@ export default function ResetPortfolioScreen() {
         </ThemedText>
 
         <Button
-          title={loading ? "Resetting..." : "Reset Portfolio Now"}
           onPress={handleReset}
           variant="primary"
           disabled={loading}
           style={styles.button}
-        />
+        >
+          {loading ? "Resetting..." : "Reset Portfolio Now"}
+        </Button>
       </Card>
     </ScrollView>
   );
