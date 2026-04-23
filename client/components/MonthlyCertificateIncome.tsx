@@ -5,7 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Spacing, BorderRadius, Typography, Palette } from "@/constants/theme";
 import type { Certificate } from "@/types";
 
 interface MonthlyCertificateIncomeProps {
@@ -175,13 +175,17 @@ export function MonthlyCertificateIncome({ certificates }: MonthlyCertificateInc
                   <ThemedText style={[styles.payoutAmount, Typography.mono]}>
                     EGP {formatCurrency(payout.amount)}
                   </ThemedText>
-                  <ThemedText 
+                  <ThemedText
                     style={[
-                      styles.dueDate, 
-                      { color: isPast ? theme.success : "#D4A017" }
+                      styles.dueDate,
+                      // Past = muted (already paid), future = bright gold (upcoming).
+                      // Restores the past/future visual contrast lost when the
+                      // palette moved to black/gold/white.
+                      { color: isPast ? Palette.black400 : Palette.gold },
                     ]}
                   >
                     {formatDueDate(payout.dueDate)}
+                    {isPast ? " ✓" : ""}
                   </ThemedText>
                 </View>
               );

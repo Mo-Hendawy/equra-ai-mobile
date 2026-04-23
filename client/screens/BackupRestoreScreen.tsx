@@ -114,7 +114,7 @@ export default function BackupRestoreScreen() {
         styles.content,
         {
           paddingTop: Spacing.xl,
-          paddingBottom: insets.bottom + Spacing.xl,
+          paddingBottom: 100 + insets.bottom + Spacing.xl,
         },
       ]}
     >

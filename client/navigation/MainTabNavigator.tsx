@@ -96,8 +96,7 @@ export default function MainTabNavigator() {
         component={StockSearchStackNavigator}
         options={{
           title: "Search",
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: "none" },
+          tabBarIcon: ({ color, size }) => <Feather name="search" size={size} color={color} />,
         }}
       />
       <Tab.Screen
@@ -105,8 +104,7 @@ export default function MainTabNavigator() {
         component={DividendCalendarStackNavigator}
         options={{
           title: "Calendar",
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: "none" },
+          tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} />,
         }}
       />
       <Tab.Screen

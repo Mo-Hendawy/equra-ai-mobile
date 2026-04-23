@@ -1,4 +1,4 @@
-import { Text, type TextProps } from "react-native";
+import { Text, StyleSheet, type TextProps } from "react-native";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Typography, NunitoFont } from "@/constants/theme";
@@ -9,7 +9,6 @@ export type ThemedTextProps = TextProps & {
   type?: "h1" | "h2" | "h3" | "h4" | "body" | "small" | "link" | "caption" | "display";
 };
 
-// Map a weight string to the matching Nunito family.
 function nunitoFor(weight?: string | number): string {
   switch (String(weight ?? "500")) {
     case "900":
@@ -44,7 +43,7 @@ export function ThemedText({
     return theme.text;
   };
 
-  const getTypeStyle = () => {
+  const typeStyle: any = (() => {
     switch (type) {
       case "h1": return Typography.h1;
       case "h2": return Typography.h2;
@@ -57,14 +56,13 @@ export function ThemedText({
       case "display": return Typography.display;
       default: return Typography.body;
     }
-  };
+  })();
 
-  const typeStyle = getTypeStyle();
-  const flatStyle = Array.isArray(style)
-    ? Object.assign({}, ...style.filter(Boolean))
-    : (style as any) || {};
-  const resolvedWeight = flatStyle.fontWeight ?? (typeStyle as any).fontWeight;
-  const fontFamily = flatStyle.fontFamily ?? nunitoFor(resolvedWeight);
+  // Flatten style safely via StyleSheet.flatten — handles arrays, nested
+  // arrays, Animated styles, null/false entries without throwing.
+  const flat: any = StyleSheet.flatten(style) ?? {};
+  const weight = flat.fontWeight ?? typeStyle.fontWeight;
+  const fontFamily = flat.fontFamily ?? nunitoFor(weight);
 
   return (
     <Text

@@ -124,7 +124,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
               <Feather
                 name={iconName}
                 size={20}
-                color={isFocused ? Palette.inkBlack : "rgba(255,255,255,0.55)"}
+                color={isFocused ? Palette.black : "rgba(255,255,255,0.55)"}
               />
             </Pressable>
           );

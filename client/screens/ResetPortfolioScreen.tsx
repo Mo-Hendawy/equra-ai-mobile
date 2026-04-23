@@ -66,7 +66,7 @@ export default function ResetPortfolioScreen() {
         styles.content,
         {
           paddingTop: insets.top + Spacing.md,
-          paddingBottom: insets.bottom + Spacing.xl,
+          paddingBottom: 100 + insets.bottom + Spacing.xl,
         },
       ]}
     >

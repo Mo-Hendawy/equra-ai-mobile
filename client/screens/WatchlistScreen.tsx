@@ -66,7 +66,7 @@ export default function WatchlistScreen() {
           styles.listContent,
           {
             paddingTop: Spacing.xl,
-            paddingBottom: insets.bottom + Spacing["4xl"],
+            paddingBottom: 100 + insets.bottom + Spacing["4xl"],
           },
           watchlist.length === 0 && styles.emptyListContent,
         ]}

@@ -237,6 +237,7 @@ export default function ThndrImportsScreen() {
       contentContainerStyle={{
         padding: 12,
         paddingTop: headerHeight + 12,
+        paddingBottom: 100 + insets.bottom + 40,
         backgroundColor: theme.backgroundRoot,
       }}
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
@@ -627,16 +628,20 @@ async function applyToHoldings(
 
   const qty = Number(txn.quantity) || 0;
   const price = Number(txn.price) || 0;
+  const fees = Number(txn.fees) || 0;
 
   if (txn.transactionType === "buy") {
     if (existing) {
       const oldShares = Number(existing.shares) || 0;
       const oldAvg = Number(existing.averageCost) || 0;
       const newShares = oldShares + qty;
+      // Include fees in the total cost so averageCost reflects actual outlay.
+      // Matches storage.ts:buyStock formula; earlier version dropped fees and
+      // inflated realized gains when the position was later sold.
       const newAvg =
         newShares === 0
           ? 0
-          : (oldShares * oldAvg + qty * price) / newShares;
+          : (oldShares * oldAvg + qty * price + fees) / newShares;
       await holdingsStorage.update(existing.id, {
         shares: newShares,
         averageCost: Number(newAvg.toFixed(4)),
@@ -653,13 +658,15 @@ async function applyToHoldings(
       }
       return existing.id;
     } else {
+      // First-ever buy: averageCost includes the fees spread across shares.
+      const avgCostWithFees = qty > 0 ? (qty * price + fees) / qty : price;
       const newHolding = await holdingsStorage.add({
         symbol,
         nameEn: stock.nameEn,
         nameAr: stock.nameAr,
         sector: stock.sector,
         shares: qty,
-        averageCost: price,
+        averageCost: Number(avgCostWithFees.toFixed(4)),
         currentPrice: price,
         role: "growth",
         status: "hold",
@@ -680,7 +687,8 @@ async function applyToHoldings(
       `Cannot sell ${qty} ${symbol} — only ${oldShares} held`
     );
   }
-  const profit = (price - oldAvg) * qty;
+  // Match storage.ts:sellStock — subtract sell-side fees from profit.
+  const profit = (price - oldAvg) * qty - fees;
   await realizedGainsStorage.add({
     symbol,
     shares: qty,

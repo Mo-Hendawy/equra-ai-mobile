@@ -132,7 +132,7 @@ export default function AnalyticsScreen() {
             styles.emptyContent,
             {
               paddingTop: Spacing.xl,
-              paddingBottom: tabBarHeight + Spacing.xl,
+              paddingBottom: 100 + insets.bottom + Spacing["4xl"],
             },
           ]}
         >
@@ -154,7 +154,7 @@ export default function AnalyticsScreen() {
           styles.content,
           {
             paddingTop: Spacing.xl,
-            paddingBottom: tabBarHeight + Spacing.xl,
+            paddingBottom: 100 + insets.bottom + Spacing["4xl"],
           },
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}

@@ -301,7 +301,7 @@ export default function PortfolioScreen() {
       <DraggableFlatList<FlatItem>
         contentContainerStyle={[
           styles.listContent,
-          { paddingTop: Spacing.sm, paddingBottom: tabBarHeight + Spacing["4xl"] },
+          { paddingTop: Spacing.sm, paddingBottom: 100 + insets.bottom + Spacing["4xl"] },
           holdings.length === 0 && styles.emptyListContent,
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -349,7 +349,7 @@ export default function PortfolioScreen() {
           );
         }}
       />
-      <FAB onPress={handleAddHolding} bottom={tabBarHeight + 20} />
+      <FAB onPress={handleAddHolding} bottom={100 + insets.bottom} />
     </View>
   );
 }

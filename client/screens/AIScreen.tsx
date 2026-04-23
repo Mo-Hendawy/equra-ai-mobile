@@ -16,8 +16,18 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 
 import { LinearGradient } from "expo-linear-gradient";
+import * as KeepAwake from "expo-keep-awake";
 import { Card } from "@/components/Card";
+import { SelectPicker } from "@/components/SelectPicker";
 import { ThemedText } from "@/components/ThemedText";
+import {
+  saveSession,
+  listSessions,
+  getLatestSession,
+  formatRunAt,
+  type AnalysisSession,
+  type AnalysisType,
+} from "@/lib/analysis-history";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Typography, Palette } from "@/constants/theme";
 import {
@@ -174,6 +184,29 @@ export default function AIScreen() {
 
   useFocusEffect(useCallback(() => { loadHoldings(); }, [loadHoldings]));
 
+  // Hydrate the latest persisted analysis for each tab on mount so users
+  // don't lose results when they close and reopen the app.
+  useEffect(() => {
+    (async () => {
+      try {
+        const [p, c, d, b, s] = await Promise.all([
+          getLatestSession("portfolio"),
+          getLatestSession("compare"),
+          getLatestSession("deploy"),
+          getLatestSession("behavior"),
+          getLatestSession("swing"),
+        ]);
+        if (p?.result && Array.isArray(p.result)) setPortfolioResults(p.result as any);
+        if (c?.result && Array.isArray(c.result)) setCompareResults(c.result as any);
+        if (d?.result && Array.isArray(d.result)) setDeployResults(d.result as any);
+        if (b?.result && Array.isArray(b.result)) setBehaviorResults(b.result as any);
+        if (s?.result) setSwingResult(s.result as any);
+      } catch (e) {
+        // ignore — hydration is best-effort
+      }
+    })();
+  }, []);
+
   const loadBehaviorData = useCallback(async () => {
     try {
       const [transactions, dividends, realizedGains, watchlist, targets] = await Promise.all([
@@ -273,6 +306,12 @@ export default function AIScreen() {
     setBehaviorResults([]);
     setExpandedCards(new Set());
     setExpandedReasoningSteps(new Set());
+
+    const keepAwakeTag = `behavior-${Date.now()}`;
+    try {
+      await KeepAwake.activateKeepAwakeAsync(keepAwakeTag);
+    } catch {}
+    const startedAt = Date.now();
     try {
       const provRes = await apiRequest("GET", "/api/ai/providers");
       const { providers } = await provRes.json();
@@ -311,16 +350,26 @@ export default function AIScreen() {
           };
         }
       });
+      const finalBehaviorResults: ProviderResult[] = [];
       for (const promise of promises) {
         const result = await promise;
+        finalBehaviorResults.push(result);
         setBehaviorResults((prev) =>
           prev.map((r) => (r.provider === result.provider ? result : r))
         );
       }
+      saveSession({
+        type: "behavior",
+        subject: "",
+        provider: "multi",
+        elapsedMs: Date.now() - startedAt,
+        result: finalBehaviorResults,
+      }).catch((e) => console.warn("[history] save failed:", e));
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to fetch providers");
     } finally {
       setLoading(false);
+      KeepAwake.deactivateKeepAwake(keepAwakeTag);
     }
   }, [getBehaviorPayload]);
 
@@ -351,6 +400,16 @@ export default function AIScreen() {
     setExpandedCards(new Set());
     setExpandedReasoningSteps(new Set());
 
+    // Keep the screen awake during multi-provider analysis (can take 60+s).
+    const keepAwakeTag = `ai-${type}-${Date.now()}`;
+    try {
+      await KeepAwake.activateKeepAwakeAsync(keepAwakeTag);
+    } catch {
+      // expo-keep-awake may be unavailable on web / old clients — tolerate.
+    }
+
+    const startedAt = Date.now();
+
     try {
       // Get available providers
       const provRes = await apiRequest("GET", "/api/ai/providers");
@@ -359,6 +418,7 @@ export default function AIScreen() {
       if (!providers || providers.length === 0) {
         Alert.alert("No Providers", "No AI providers are configured on the backend.");
         setLoading(false);
+        KeepAwake.deactivateKeepAwake(keepAwakeTag);
         return;
       }
 
@@ -396,16 +456,31 @@ export default function AIScreen() {
       });
 
       // Update results as they come in
+      const finalResults: ProviderResult[] = [];
       for (const promise of promises) {
         const result = await promise;
+        finalResults.push(result);
         setResults((prev) =>
           prev.map((r) => (r.provider === result.provider ? result : r))
         );
       }
+
+      // Persist the full multi-provider session so it survives app close.
+      const subject = type === "compare"
+        ? compareSymbols.join(",")
+        : "";
+      saveSession({
+        type,
+        subject,
+        provider: "multi",
+        elapsedMs: Date.now() - startedAt,
+        result: finalResults,
+      }).catch((e) => console.warn("[history] save failed:", e));
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to fetch providers");
     } finally {
       setLoading(false);
+      KeepAwake.deactivateKeepAwake(keepAwakeTag);
     }
   };
 
@@ -1035,6 +1110,14 @@ export default function AIScreen() {
     setSwingError(null);
     setSwingLoading(true);
     setSwingResult(null);
+
+    // Keep screen awake — swing pipeline can take 30–60s.
+    const keepAwakeTag = `swing-${sym}-${Date.now()}`;
+    try {
+      await KeepAwake.activateKeepAwakeAsync(keepAwakeTag);
+    } catch {}
+
+    const startedAt = Date.now();
     try {
       const resp = await apiRequest("GET", `/api/swing/${sym}`);
       const data = (await resp.json()) as SwingAnalysisResult;
@@ -1043,11 +1126,20 @@ export default function AIScreen() {
       } else {
         setSwingResult(data);
         setSwingSymbol(sym);
+        // Persist so closing the screen doesn't lose the result.
+        saveSession({
+          type: "swing",
+          subject: sym,
+          provider: data.model ?? "unknown",
+          elapsedMs: Date.now() - startedAt,
+          result: data,
+        }).catch((e) => console.warn("[history] save failed:", e));
       }
     } catch (e: any) {
       setSwingError(e?.message || "Request failed");
     } finally {
       setSwingLoading(false);
+      KeepAwake.deactivateKeepAwake(keepAwakeTag);
     }
   };
 
@@ -1062,64 +1154,60 @@ export default function AIScreen() {
 
   const renderSwing = () => (
     <View>
-      {/* Ticker picker: input + suggested chips from holdings */}
+      {/* Ticker picker: searchable dropdown of all EGX stocks */}
       <Card style={styles.card}>
-        <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>Pick a ticker</ThemedText>
-        <View style={styles.chipRow}>
-          {holdings.slice(0, 8).map((h) => (
-            <TouchableOpacity
-              key={h.symbol}
-              onPress={() => setSwingSymbol(h.symbol)}
-              style={[
-                styles.symbolChip,
-                {
-                  backgroundColor: swingSymbol === h.symbol ? Palette.gold : theme.backgroundSecondary,
-                  borderWidth: 1,
-                  borderColor: swingSymbol === h.symbol ? Palette.goldDeep : theme.divider,
-                },
-              ]}
-            >
-              <ThemedText
-                style={{
-                  color: swingSymbol === h.symbol ? Palette.black : theme.text,
-                  fontWeight: "700",
-                }}
-              >
-                {h.symbol}
-              </ThemedText>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.backgroundSecondary,
-              color: theme.text,
-              borderColor: theme.divider,
-              marginTop: Spacing.md,
-            },
-          ]}
-          placeholder="Or type a symbol (e.g. OLFI)"
-          placeholderTextColor={theme.textSecondary}
-          value={swingSymbol}
-          onChangeText={(t) => setSwingSymbol(t.toUpperCase())}
-          autoCapitalize="characters"
+        <SelectPicker
+          label="Stock"
+          placeholder="Select a stock to analyse"
+          options={(() => {
+            // Holdings first (prefixed • so they appear at top when sorted),
+            // then all EGX stocks alphabetically.
+            const heldSet = new Set(holdings.map((h) => h.symbol));
+            const held = holdings.map((h) => ({
+              id: h.symbol,
+              label: `• ${h.symbol}`,
+              sublabel: h.nameEn ?? "",
+            }));
+            const others = EGX_STOCKS
+              .filter((s) => !heldSet.has(s.symbol))
+              .map((s) => ({
+                id: s.symbol,
+                label: s.symbol,
+                sublabel: s.nameEn,
+              }));
+            return [...held, ...others];
+          })()}
+          selectedId={swingSymbol || undefined}
+          onSelect={(id) => setSwingSymbol(id)}
         />
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: theme.primary, marginTop: Spacing.lg }]}
+          style={[
+            styles.button,
+            {
+              backgroundColor: swingSymbol ? theme.primary : theme.backgroundSecondary,
+              marginTop: Spacing.lg,
+              opacity: swingSymbol ? 1 : 0.6,
+            },
+          ]}
           onPress={() => runSwingAnalysis()}
-          disabled={swingLoading}
+          disabled={swingLoading || !swingSymbol}
         >
           <Feather name="zap" size={18} color={Palette.black} />
           <ThemedText style={styles.buttonText}>
-            {swingLoading ? "Analysing…" : "Run Swing Analysis"}
+            {swingLoading
+              ? "Analysing…"
+              : swingSymbol
+                ? `Run Swing Analysis on ${swingSymbol}`
+                : "Pick a stock first"}
           </ThemedText>
         </TouchableOpacity>
         {swingError && (
-          <ThemedText style={{ color: Palette.whisperRed ?? "#FF6B6B", marginTop: Spacing.md, fontSize: 13 }}>
-            {swingError}
-          </ThemedText>
+          <View style={[styles.errorBox, { borderColor: Palette.whisperRed, backgroundColor: "rgba(255,107,107,0.08)" }]}>
+            <Feather name="alert-triangle" size={14} color={Palette.whisperRed} />
+            <ThemedText style={{ color: Palette.whisperRed, fontSize: 13, flex: 1, marginLeft: 8 }}>
+              {swingError}
+            </ThemedText>
+          </View>
         )}
       </Card>
 
@@ -1318,7 +1406,7 @@ export default function AIScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingTop: insets.top + Spacing.md, paddingBottom: tabBarHeight + Spacing.xl, paddingHorizontal: Spacing.lg }}
+        contentContainerStyle={{ paddingTop: insets.top + Spacing.md, paddingBottom: 100 + insets.bottom + Spacing["4xl"], paddingHorizontal: Spacing.lg }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
       >
         <View style={styles.titleBar}>
@@ -1433,6 +1521,14 @@ const styles = StyleSheet.create({
   button: { flexDirection: "row", alignItems: "center", justifyContent: "center", height: 48, borderRadius: 9999, gap: Spacing.sm },
   buttonText: { color: Palette.black, fontWeight: "700", fontSize: 14 },
   resultHeader: { fontSize: 10, fontWeight: "700", letterSpacing: 1.4, opacity: 0.75, textTransform: "uppercase" },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 12,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderRadius: 10,
+  },
   input: { height: Spacing.inputHeight, borderWidth: 1, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.lg, fontSize: 15 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.sm },
   symbolChip: { flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: BorderRadius.full },

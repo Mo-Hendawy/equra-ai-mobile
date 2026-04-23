@@ -1,5 +1,5 @@
 import React from "react";
-import { View, ScrollView, StyleSheet } from "react-native";
+import { View, ScrollView, StyleSheet, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, DrawerActions } from "@react-navigation/native";
@@ -10,6 +10,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { MenuListItem } from "@/components/MenuListItem";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, NunitoFont, Palette } from "@/constants/theme";
+import { registerForPushNotifications } from "@/lib/push-notifications";
 import type { MoreStackParamList } from "@/navigation/MoreStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList>;
@@ -47,7 +48,7 @@ export default function MoreScreen() {
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
         paddingTop: insets.top + Spacing.md,
-        paddingBottom: tabBarHeight + Spacing.xl,
+        paddingBottom: 100 + insets.bottom + Spacing["4xl"],
         paddingHorizontal: Spacing.lg,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -65,6 +66,23 @@ export default function MoreScreen() {
           subtitle="Your trading rules — swipe left edge to access"
           onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
           iconColor={Palette.gold}
+        />
+        <MenuListItem
+          icon="bell"
+          title="Re-register notifications"
+          subtitle="Re-send push token if you stopped getting alerts"
+          iconColor={Palette.gold400}
+          onPress={async () => {
+            const token = await registerForPushNotifications({ force: true });
+            if (token) {
+              Alert.alert("Registered", `Token sent to backend:\n${token.slice(0, 40)}…`);
+            } else {
+              Alert.alert(
+                "Not registered",
+                "Could not get a push token. Check permissions in device settings."
+              );
+            }
+          }}
         />
         <MenuListItem
           icon="eye"

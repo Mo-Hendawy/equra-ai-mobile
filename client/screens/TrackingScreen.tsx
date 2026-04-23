@@ -247,7 +247,7 @@ export default function TrackingScreen() {
       <View
         style={[
           styles.content,
-          { paddingBottom: tabBarHeight + Spacing["4xl"] },
+          { paddingBottom: 100 + insets.bottom + Spacing["4xl"] },
         ]}
       >
         {renderContent()}
@@ -256,7 +256,7 @@ export default function TrackingScreen() {
       <FAB
         onPress={handleFabPress}
         icon={getFabIcon() as any}
-        bottom={tabBarHeight + 20}
+        bottom={100 + insets.bottom}
       />
     </View>
   );

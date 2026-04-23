@@ -110,7 +110,11 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
-  if (loading || !fontsLoaded) {
+  // Only gate on portfolio migration, NOT fonts. If Nunito fails to load (or
+  // is slow) the app still boots with system-font fallback; Nunito renders
+  // once available. Blocking on fontsLoaded caused an indefinite splash on
+  // some devices.
+  if (loading) {
     return (
       <View style={[styles.root, { justifyContent: "center", alignItems: "center", backgroundColor: Palette.black }]}>
         <ActivityIndicator size="large" color={Palette.gold} />

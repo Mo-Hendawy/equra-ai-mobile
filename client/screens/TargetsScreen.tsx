@@ -306,7 +306,7 @@ export default function TargetsScreen() {
           styles.listContent,
           {
             paddingTop: Spacing.xl,
-            paddingBottom: insets.bottom + Spacing.xl + 80,
+            paddingBottom: 100 + insets.bottom + Spacing.xl,
           },
           targets.length === 0 && styles.emptyListContent,
         ]}

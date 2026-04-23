@@ -105,9 +105,9 @@ export default function StockSearchScreen() {
 
           <Card style={styles.stockHeader}>
             <View style={styles.stockHeaderContent}>
-              <View>
+              <View style={styles.stockHeaderLeft}>
                 <ThemedText type="h3">{selectedStock}</ThemedText>
-                <ThemedText style={{ color: theme.textSecondary }}>
+                <ThemedText style={{ color: theme.textSecondary }} numberOfLines={2}>
                   {EGX_STOCKS.find((s) => s.symbol === selectedStock)?.nameEn}
                 </ThemedText>
               </View>
@@ -115,9 +115,17 @@ export default function StockSearchScreen() {
                 <ActivityIndicator size="small" color={theme.primary} />
               ) : stockPrice?.price ? (
                 <View style={styles.priceContainer}>
-                  <ThemedText type="h3">EGP {formatCurrency(stockPrice.price)}</ThemedText>
+                  <ThemedText
+                    type="h3"
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.6}
+                  >
+                    EGP {formatCurrency(stockPrice.price)}
+                  </ThemedText>
                   {stockPrice.changePercent !== null ? (
                     <ThemedText
+                      numberOfLines={1}
                       style={{
                         color: stockPrice.changePercent >= 0 ? theme.success : theme.error,
                         fontSize: 14,
@@ -277,9 +285,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 8,
+  },
+  stockHeaderLeft: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   priceContainer: {
     alignItems: "flex-end",
+    flexShrink: 0,
   },
   expandableHeader: {
     flexDirection: "row",

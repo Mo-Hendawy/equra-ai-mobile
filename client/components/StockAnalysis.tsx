@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as KeepAwake from "expo-keep-awake";
 
 import { Card } from "@/components/Card";
 import { ThemedText } from "@/components/ThemedText";
@@ -193,10 +194,19 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
     });
   };
 
+  const keepAwakeTagRef = useRef<string | null>(null);
+
   const fetchAllProviders = async () => {
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
+
+    // Keep screen awake while providers run (can take 30-60s).
+    const tag = `stock-analysis-${Date.now()}`;
+    keepAwakeTagRef.current = tag;
+    try {
+      await KeepAwake.activateKeepAwakeAsync(tag);
+    } catch {}
 
     try {
       const res = await apiRequest("GET", "/api/ai/trusted-providers", undefined, { signal: controller.signal });
@@ -260,6 +270,10 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
         completedCount.current++;
         if (completedCount.current >= totalProviders.current) {
           saveCacheResults(latestProviders.current, updated, latestProviders.current[0]?.id || "");
+          if (keepAwakeTagRef.current) {
+            KeepAwake.deactivateKeepAwake(keepAwakeTagRef.current);
+            keepAwakeTagRef.current = null;
+          }
         }
         return updated;
       });
@@ -281,6 +295,10 @@ export function StockAnalysis({ symbol }: StockAnalysisProps) {
         completedCount.current++;
         if (completedCount.current >= totalProviders.current) {
           saveCacheResults(latestProviders.current, updated, latestProviders.current[0]?.id || "");
+          if (keepAwakeTagRef.current) {
+            KeepAwake.deactivateKeepAwake(keepAwakeTagRef.current);
+            keepAwakeTagRef.current = null;
+          }
         }
         return updated;
       });

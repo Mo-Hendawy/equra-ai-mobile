@@ -466,7 +466,7 @@ export default function RealizedGainsScreen() {
           styles.listContent,
           {
             paddingTop: Spacing.xl,
-            paddingBottom: insets.bottom + Spacing.xl + 80,
+            paddingBottom: 100 + insets.bottom + Spacing.xl,
           },
           gains.length === 0 && !loading && styles.emptyListContent,
         ]}
