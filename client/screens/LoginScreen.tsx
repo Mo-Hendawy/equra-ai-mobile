@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   TextInput,
@@ -9,18 +9,50 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+import { GoogleAuthProvider, signInWithCredential, signInWithPopup } from "firebase/auth";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
+import { auth } from "@/lib/firebase";
 import { Palette, Spacing, NunitoFont } from "@/constants/theme";
 
+WebBrowser.maybeCompleteAuthSession();
+
+const WEB_CLIENT_ID = "506769313227-83dgr5up6jgh441jrbf943nctcj7t003.apps.googleusercontent.com";
+
 export default function LoginScreen() {
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const { signIn, signUp } = useAuth();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"login" | "register">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: WEB_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === "success") {
+      const idToken =
+        (response as any).authentication?.idToken ??
+        response.params?.id_token;
+      if (idToken) {
+        const credential = GoogleAuthProvider.credential(idToken);
+        setLoading(true);
+        signInWithCredential(auth, credential)
+          .catch((e: any) => setError(e?.message ?? "Google sign-in failed."))
+          .finally(() => setLoading(false));
+      } else {
+        setError("Google sign-in failed: no ID token returned.");
+      }
+    } else if (response?.type === "error") {
+      const msg = (response.error as any)?.message ?? "";
+      if (!msg.includes("dismissed")) setError(msg || "Google sign-in failed.");
+    }
+  }, [response]);
 
   const handle = async () => {
     if (!email.trim() || !password) {
@@ -48,6 +80,25 @@ export default function LoginScreen() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setError("");
+    if (Platform.OS === "web") {
+      setLoading(true);
+      try {
+        await signInWithPopup(auth, new GoogleAuthProvider());
+      } catch (e: any) {
+        const msg: string = e?.message ?? "";
+        if (!msg.includes("popup-closed")) {
+          setError(msg || "Google sign-in failed.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      promptAsync();
     }
   };
 
@@ -112,26 +163,9 @@ export default function LoginScreen() {
           </View>
 
           <TouchableOpacity
-            style={styles.googleBtn}
-            onPress={async () => {
-              setError("");
-              setLoading(true);
-              try {
-                await signInWithGoogle();
-              } catch (e: any) {
-                const msg: string = e?.message ?? "";
-                if (msg.includes("popup-closed")) {
-                  // user dismissed — not an error
-                } else if (msg.includes("operation-not-allowed")) {
-                  setError("Google Sign-In is not enabled. Enable it in the Firebase console.");
-                } else {
-                  setError(msg || "Google sign-in failed.");
-                }
-              } finally {
-                setLoading(false);
-              }
-            }}
-            disabled={loading}
+            style={[styles.googleBtn, (!request && Platform.OS !== "web") && styles.googleBtnDisabled]}
+            onPress={handleGoogle}
+            disabled={loading || (!request && Platform.OS !== "web")}
           >
             <ThemedText style={styles.googleBtnText}>Continue with Google</ThemedText>
           </TouchableOpacity>
@@ -225,6 +259,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
+  },
+  googleBtnDisabled: {
+    opacity: 0.5,
   },
   googleBtnText: {
     color: "#111",
