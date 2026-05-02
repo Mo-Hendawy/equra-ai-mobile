@@ -6,6 +6,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
 } from "firebase/auth";
+import { Platform } from "react-native";
 import { auth } from "@/lib/firebase";
 
 interface AuthContextValue {
@@ -39,6 +40,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    if (Platform.OS !== "web") {
+      try {
+        const { GoogleSignin } = await import("@react-native-google-signin/google-signin");
+        await GoogleSignin.signOut();
+      } catch { /* not signed in via Google — ignore */ }
+    }
     await firebaseSignOut(auth);
   };
 

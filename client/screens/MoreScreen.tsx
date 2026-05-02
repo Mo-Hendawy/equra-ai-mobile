@@ -88,8 +88,8 @@ export default function MoreScreen() {
       <View style={group}>
         <MenuListItem
           icon="user"
-          title={user?.email ?? "Signed in"}
-          subtitle="Your Equra AI account"
+          title={user?.displayName ?? user?.email ?? "Signed in"}
+          subtitle={user?.displayName ? user.email ?? "Your Equra AI account" : "Your Equra AI account"}
           iconColor={Palette.gold}
         />
         <MenuListItem
