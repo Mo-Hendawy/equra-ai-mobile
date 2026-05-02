@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   TextInput,
@@ -9,8 +9,8 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { GoogleAuthProvider, signInWithCredential, signInWithPopup } from "firebase/auth";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
@@ -20,68 +20,10 @@ import { Palette, Spacing, NunitoFont } from "@/constants/theme";
 WebBrowser.maybeCompleteAuthSession();
 
 const WEB_CLIENT_ID = "506769313227-83dgr5up6jgh441jrbf943nctcj7t003.apps.googleusercontent.com";
-const ANDROID_CLIENT_ID = "506769313227-a03q4g5phtrj64etd9uml68c8v8j7duj.apps.googleusercontent.com";
 
-// ─── sub-component that holds the expo-auth-session hook ─────────────────────
-// Kept separate so the ErrorBoundary below can catch its render-time throw
-// when androidClientId is not yet configured.
-interface NativeGoogleButtonProps {
-  onError: (msg: string) => void;
-  disabled: boolean;
+if (Platform.OS !== "web") {
+  GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
 }
-
-function NativeGoogleButtonInner({ onError, disabled }: NativeGoogleButtonProps) {
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: WEB_CLIENT_ID,
-    androidClientId: ANDROID_CLIENT_ID,
-  });
-
-  useEffect(() => {
-    if (response?.type === "success") {
-      const idToken =
-        (response as any).authentication?.idToken ??
-        response.params?.id_token;
-      if (idToken) {
-        const credential = GoogleAuthProvider.credential(idToken);
-        signInWithCredential(auth, credential).catch((e: any) =>
-          onError(e?.message ?? "Google sign-in failed.")
-        );
-      } else {
-        onError("Google sign-in failed: no ID token returned.");
-      }
-    } else if (response?.type === "error") {
-      const msg = (response.error as any)?.message ?? "";
-      if (!msg.includes("dismissed")) onError(msg || "Google sign-in failed.");
-    }
-  }, [response]);
-
-  return (
-    <TouchableOpacity
-      style={[styles.googleBtn, (!request || disabled) && styles.googleBtnDisabled]}
-      onPress={() => promptAsync()}
-      disabled={!request || disabled}
-    >
-      <ThemedText style={styles.googleBtnText}>Continue with Google</ThemedText>
-    </TouchableOpacity>
-  );
-}
-
-interface BoundaryState { crashed: boolean }
-class NativeGoogleButton extends React.Component<NativeGoogleButtonProps, BoundaryState> {
-  state: BoundaryState = { crashed: false };
-  static getDerivedStateFromError() { return { crashed: true }; }
-  render() {
-    if (this.state.crashed) {
-      return (
-        <TouchableOpacity style={[styles.googleBtn, styles.googleBtnDisabled]} disabled>
-          <ThemedText style={styles.googleBtnText}>Google Sign-In (setup required)</ThemedText>
-        </TouchableOpacity>
-      );
-    }
-    return <NativeGoogleButtonInner {...this.props} />;
-  }
-}
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function LoginScreen() {
   const { signIn, signUp } = useAuth();
@@ -121,15 +63,33 @@ export default function LoginScreen() {
     }
   };
 
-  const handleWebGoogle = async () => {
+  const handleGoogle = async () => {
     setError("");
     setLoading(true);
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      if (Platform.OS === "web") {
+        await signInWithPopup(auth, new GoogleAuthProvider());
+      } else {
+        await GoogleSignin.hasPlayServices();
+        const userInfo = await GoogleSignin.signIn();
+        const idToken = userInfo.data?.idToken;
+        if (!idToken) throw new Error("Google sign-in failed: no ID token.");
+        const credential = GoogleAuthProvider.credential(idToken);
+        await signInWithCredential(auth, credential);
+      }
     } catch (e: any) {
-      const msg: string = e?.message ?? "";
-      if (!msg.includes("popup-closed")) {
-        setError(msg || "Google sign-in failed.");
+      const code = e?.code;
+      if (code === statusCodes.SIGN_IN_CANCELLED) {
+        // user dismissed — not an error
+      } else if (code === statusCodes.IN_PROGRESS) {
+        // sign-in already in progress
+      } else if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setError("Google Play Services not available.");
+      } else {
+        const msg: string = e?.message ?? "";
+        if (!msg.includes("popup-closed")) {
+          setError(msg || "Google sign-in failed.");
+        }
       }
     } finally {
       setLoading(false);
@@ -196,17 +156,13 @@ export default function LoginScreen() {
             <View style={styles.divLine} />
           </View>
 
-          {Platform.OS === "web" ? (
-            <TouchableOpacity
-              style={styles.googleBtn}
-              onPress={handleWebGoogle}
-              disabled={loading}
-            >
-              <ThemedText style={styles.googleBtnText}>Continue with Google</ThemedText>
-            </TouchableOpacity>
-          ) : (
-            <NativeGoogleButton onError={setError} disabled={loading} />
-          )}
+          <TouchableOpacity
+            style={styles.googleBtn}
+            onPress={handleGoogle}
+            disabled={loading}
+          >
+            <ThemedText style={styles.googleBtnText}>Continue with Google</ThemedText>
+          </TouchableOpacity>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -297,9 +253,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
-  },
-  googleBtnDisabled: {
-    opacity: 0.4,
   },
   googleBtnText: {
     color: "#111",
