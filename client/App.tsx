@@ -22,6 +22,7 @@ import { queryClient } from "@/lib/query-client";
 
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AuthProvider } from "@/context/AuthContext";
 import { resetPortfolio } from "@/lib/reset-portfolio";
 import { migrateOBEYtoOLFI } from "@/lib/storage";
 import { ThemedText } from "@/components/ThemedText";
@@ -126,14 +127,16 @@ export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
-          <GestureHandlerRootView style={styles.root}>
-            <NavigationContainer ref={navigationRef}>
-              <StatusBar style="light" />
-              <RootStackNavigator />
-            </NavigationContainer>
-          </GestureHandlerRootView>
-        </SafeAreaProvider>
+        <AuthProvider>
+          <SafeAreaProvider>
+            <GestureHandlerRootView style={styles.root}>
+              <NavigationContainer ref={navigationRef}>
+                <StatusBar style="light" />
+                <RootStackNavigator />
+              </NavigationContainer>
+            </GestureHandlerRootView>
+          </SafeAreaProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

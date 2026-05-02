@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, ScrollView, StyleSheet, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -11,6 +11,9 @@ import { MenuListItem } from "@/components/MenuListItem";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, NunitoFont, Palette } from "@/constants/theme";
 import { registerForPushNotifications } from "@/lib/push-notifications";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/query-client";
+import { backupStorage } from "@/lib/storage";
 import type { MoreStackParamList } from "@/navigation/MoreStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList>;
@@ -33,6 +36,29 @@ export default function MoreScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
+  const { user, signOut } = useAuth();
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const json = await backupStorage.export();
+      const payload = JSON.parse(json);
+      await apiRequest("POST", "/api/sync/import", payload);
+      Alert.alert("Synced", "Your portfolio has been saved to the cloud.");
+    } catch (e: any) {
+      Alert.alert("Sync failed", e?.message ?? "Could not sync to cloud.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleSignOut = () => {
+    Alert.alert("Sign out", "Are you sure?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign out", style: "destructive", onPress: () => signOut() },
+    ]);
+  };
 
   const group = {
     backgroundColor: theme.backgroundDefault,
@@ -55,6 +81,32 @@ export default function MoreScreen() {
     >
       <View style={styles.titleBar}>
         <ThemedText style={styles.screenTitle}>More</ThemedText>
+      </View>
+
+      {/* ── Account ── */}
+      <SectionHeader color={Palette.gold}>ACCOUNT</SectionHeader>
+      <View style={group}>
+        <MenuListItem
+          icon="user"
+          title={user?.email ?? "Signed in"}
+          subtitle="Your Equra AI account"
+          iconColor={Palette.gold}
+        />
+        <MenuListItem
+          icon="upload-cloud"
+          title={syncing ? "Syncing…" : "Sync to Cloud"}
+          subtitle="Save your portfolio to your account"
+          iconColor={Palette.gold400}
+          onPress={handleSync}
+        />
+        <MenuListItem
+          icon="log-out"
+          title="Sign Out"
+          subtitle="Sign out of your account"
+          iconColor="#f87171"
+          onPress={handleSignOut}
+          isLast
+        />
       </View>
 
       {/* ── Features ── */}
