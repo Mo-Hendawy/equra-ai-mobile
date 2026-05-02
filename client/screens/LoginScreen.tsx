@@ -20,10 +20,7 @@ import { Palette, Spacing, NunitoFont } from "@/constants/theme";
 WebBrowser.maybeCompleteAuthSession();
 
 const WEB_CLIENT_ID = "506769313227-83dgr5up6jgh441jrbf943nctcj7t003.apps.googleusercontent.com";
-// TODO: replace with Android OAuth client ID from Google Cloud Console
-// (APIs & Services > Credentials > Create OAuth 2.0 Client ID > Android)
-// Package: com.egx.portfolio, SHA-1: 5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25
-const ANDROID_CLIENT_ID: string | undefined = undefined;
+const ANDROID_CLIENT_ID = "506769313227-a03q4g5phtrj64etd9uml68c8v8j7duj.apps.googleusercontent.com";
 
 // ─── sub-component that holds the expo-auth-session hook ─────────────────────
 // Kept separate so the ErrorBoundary below can catch its render-time throw
